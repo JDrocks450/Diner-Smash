@@ -98,7 +98,7 @@ namespace Diner_Smash
             Objects.Clear();            
             Player = null;            
             if (Save is null)
-                Save = LevelSave.Load(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "test.xml"), Manager);
+                Save = LevelSave.Load(Manager);
             GameScene.Setup(Manager, Save);
             FinishLoad();
         }
@@ -191,9 +191,7 @@ namespace Diner_Smash
         private void UserInputted(InputHelper.InputEventArgs e)
         {
             if (e.PressedKeys.Contains(Keys.F5))
-                GameScene.Source.Save(
-                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-                        "test.xml"));
+                SourceLevel.Save();
             if (e.PressedKeys.Contains(Keys.F6))
                 PlacementMode = !PlacementMode;
             if (e.PressedKeys.Contains(Keys.F1))

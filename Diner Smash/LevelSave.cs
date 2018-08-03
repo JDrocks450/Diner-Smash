@@ -17,6 +17,7 @@ namespace Diner_Smash
         [NonSerialized]
         public XDocument Source;
         public string WorkingDirectory;
+        public const string SAVENAME = @"\Content\level.xml";
         public Point LevelSize
         {
             get => new Point(SizeX, SizeY);
@@ -26,17 +27,22 @@ namespace Diner_Smash
                 SizeY = value.Y;
             }
         }
-        public int SizeY;
-        public int SizeX;
+        public int SizeY = 1000;
+        public int SizeX = 1000;
 
         [NonSerialized]
         public List<GameObject> LoadedObjects = new List<GameObject>();
 
-        public static LevelSave Load(string Path, ContentManager Content)
+        public static LevelSave Load(ContentManager Content)
         {
             LevelSave l = new LevelSave();
-            l.WorkingDirectory = Path;
-            XDocument doc = XDocument.Load(Path);            
+            l.WorkingDirectory = Environment.CurrentDirectory + SAVENAME;
+            XDocument doc = null;
+            try
+            {
+                doc = XDocument.Load(l.WorkingDirectory);
+            }
+            catch { return new LevelSave(); }
             return Load(doc, Content);
         }
         public static LevelSave Load(XDocument doc, ContentManager Content)
@@ -67,7 +73,7 @@ namespace Diner_Smash
         public void Save(string Path = default)
         {
             if (Path == default)
-                Path = WorkingDirectory;
+                Path = Environment.CurrentDirectory + SAVENAME;
             WorkingDirectory = Path;
             if (WorkingDirectory == null)
                 throw new Exception("A path is mandatory");

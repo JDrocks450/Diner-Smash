@@ -14,12 +14,6 @@ namespace Diner_Smash
 {
     public class Playground
     {        
-        public LevelSave Source
-        {
-            get;
-            private set;
-        }
-
         public Texture2D Floor;
 
         public Playground()
@@ -31,6 +25,8 @@ namespace Diner_Smash
 
         public void Setup(ContentManager Content, LevelSave Source)
         {
+            if (Source is null)
+                return;
             Floors.Clear();
             Main.Objects = Source.LoadedObjects;
             Floor = Content.Load<Texture2D>("Objects/Floor");

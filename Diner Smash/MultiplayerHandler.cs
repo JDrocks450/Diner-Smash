@@ -40,10 +40,22 @@ namespace Diner_Smash
                 new InterfaceComponent().CreateButton("Host Server", Color.Orange * .5f, Color.White,
                     Color.MonoGameOrange * .5f, Color.MonoGameOrange, new Rectangle(new Point(10, 5), new Point(200, 50))),
                 new InterfaceComponent().CreateButton("Join Server", Color.Orange * .5f, Color.White,
+                    Color.MonoGameOrange * .5f, Color.MonoGameOrange, new Rectangle(new Point(10, 5), new Point(200, 50))),
+                new InterfaceComponent().CreateButton("Create Level", Color.Orange * .5f, Color.White,
                     Color.MonoGameOrange * .5f, Color.MonoGameOrange, new Rectangle(new Point(10, 5), new Point(200, 50))));
             (hostJoinPrompt.Components[1] as Button).OnClick += HostButtonClick;
             (hostJoinPrompt.Components[2] as Button).OnClick += JoinButtonClick;
+            (hostJoinPrompt.Components[3] as Button).OnClick += LevelCreatorButtonClick;
             Main.UILayer.Components.Add(hostJoinPrompt);
+        }
+
+        private void LevelCreatorButtonClick(Button sender)
+        {
+            Main.FLAG_NetPlayGameStarted = true;
+            Ready = true;
+            System.Windows.Forms.MessageBox.Show("Welcome to Creator Mode!" + Environment.NewLine
+               + "Check the GitHub README for Creator controls.", "Creator Mode");
+            Main.UILayer.Components.Remove(hostJoinPrompt);
         }
 
         private void JoinButtonClick(Button sender)
