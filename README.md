@@ -20,10 +20,10 @@ Download link to built file will be available soon.
 Before you take your level online you should create one in the built-in Create Level mode.
   
 Controls:
-    + F1 = DEBUGMODE Overlay
-    + F2 = Object Spawn List (Select an object to add to the level)
-    + F5 = Save Level
-    + F6 = Enter/Exit Placement Mode (Creator Only)
-    + Mouse Left Click & Drag = Move Object
-    + Mouse Left Click & Drag + DEL = Delete Object
+  + F1 = DEBUGMODE Overlay
+  + F2 = Object Spawn List (Select an object to add to the level)
+  + F5 = Save Level
+  + F6 = Enter/Exit Placement Mode (Creator Only)
+  + Mouse Left Click & Drag = Move Object
+  + Mouse Left Click & Drag + DEL = Delete Object
 Save Frequently!
