@@ -18,13 +18,15 @@ namespace Server_Structure
     {
         public ClientContext()
         {
-
+            
         }
+
         public TcpClient Client;
         public NetworkStream Stream;
         public byte[] Buffer = new byte[4];
         public MemoryStream Message = new MemoryStream();
-        public string LastASCIIMessage;
+
+        public string Gamertag { get; set; } = "Anonymous";
 
         /// <summary>
         /// The id used to identify the context.
@@ -289,7 +291,13 @@ namespace Server_Structure
                     return true;
                 }
                 return true;
-            }   
+            }
+            if (FLAG_WAITSAY)
+            {
+                FLAG_WAITSAY = false;
+                BroadcastMessage("SERVER", command, BroadcastAudience.All);
+                return true;
+            }
             try
             {
                 switch (command.TrimStart('/'))
@@ -306,6 +314,10 @@ namespace Server_Structure
                         return true;
                     case "ready":
                         BroadcastGameStart();
+                        return true;
+                    case "say":
+                        WriteLine("Broadcast what? Waiting for ASCII message...");
+                        FLAG_WAITSAY = true;
                         return true;
                 }
             }
@@ -330,6 +342,7 @@ namespace Server_Structure
         /// </summary>
         static DSPacket BasePacket;
         static bool _waitingForCompletePacket = false;
+        private static bool FLAG_WAITSAY;
         #endregion
 
         //[DebuggerStepThrough]
@@ -376,9 +389,7 @@ namespace Server_Structure
                             WriteLine("Client: " + context.ID + " whispered: " + message);
                             break;
                         case 3: //Sends a text message to all clients
-                            WriteLine("Client: " + context.ID + " whispered to all: " + message);
-                            BroadcastMessage(context.LastASCIIMessage.Substring(
-                                context.LastASCIIMessage.IndexOf(' ') + 1), BroadcastAudience.All);
+                            BroadcastMessage(context.Gamertag, Encoding.ASCII.GetString(Packet.data), BroadcastAudience.All);
                             break;
                         case 4: //Updates the server level and forces clients to switch levels
                             WriteLine("Client has requested to update server level. Size: " + Packet.data.Length);
@@ -538,7 +549,6 @@ namespace Server_Structure
             byte[] buffer = new byte[MessageLength];
             context.Message.Position = 0;
             context.Message.Read(buffer, 0, buffer.Length);
-            context.LastASCIIMessage = ASCIIEncoding.ASCII.GetString(buffer);
             VerifyMessageAsServerCommand(context, buffer);
         }
 
@@ -610,16 +620,16 @@ namespace Server_Structure
             All,
         }
 
-        static void BroadcastMessage(string message, BroadcastAudience audience)
+        static void BroadcastMessage(string sender, string message, BroadcastAudience audience)
         {
             int messageattempts = 0;
             if (audience == BroadcastAudience.All)
                 foreach (var client in Connections)
                 {
-                    SendPacketToClient(client, DSPacket.Format(6, ASCIIEncoding.ASCII.GetBytes(message)));
+                    SendPacketToClient(client, DSPacket.Format(6, Encoding.ASCII.GetBytes($"{sender}|{message}")));
                     messageattempts++;
                 }
-            WriteLine("Broadcasted to " + messageattempts + " clients of " + Connections.Where(x => !x.Disposed).Count() + " total clients");
+            WriteLine($"[Messenger] {sender}: {message}");
         }
 
         static void SendPacketToClient(ClientContext context, byte[] FormattedPacket)

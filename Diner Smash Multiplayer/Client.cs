@@ -37,6 +37,11 @@ namespace Server_Structure
         public event OnClientStateChanged RemovedFromMatch;
         public event OnClientStateChanged HostStartedGame;
         public event OnClientStateChanged DisconnectedFromGame;
+        public delegate void OnTextMessageReceivedHandler(string sender, string message);
+        /// <summary>
+        /// Called when the client receives a message from a remote connection.
+        /// </summary>
+        public event OnTextMessageReceivedHandler OnMessageReceived;
         public delegate void PlayerCreatedHandler(int ID);
         /// <summary>
         /// Raised when the client needs to create a new player character
@@ -183,7 +188,10 @@ namespace Server_Structure
                         break;
                     case 6: //Textmessage
                         message = Encoding.ASCII.GetString(Packet.data);
-                        Server.WriteLine(message);
+                        string sender = message.Substring(0, message.IndexOf('|'));
+                        message = message.Substring(message.IndexOf('|') + 1);
+                        OnMessageReceived?.Invoke(sender, message);
+                        Server.WriteLine($"{sender}: {message}");
                         break;
                     case 7: //Player interacts with an object
                         PlayerInteract(Packet.data);

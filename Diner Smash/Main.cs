@@ -88,8 +88,8 @@ namespace Diner_Smash
             Multiplayer = new MultiplayerHandler();
             UILayer = new UserInterface(Content, new Point(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height));
             Spawner = new ObjectSpawnList(Content, new Point(0));
-            Spawner.Formatter.Location = new Point(GraphicsDevice.Viewport.Width - Spawner.Formatter.Destination.Width - 10, 10);
-            Spawner.Formatter.Reformat(UILayer.Font);
+            Spawner.Formatter.Margin = new Point(GraphicsDevice.Viewport.Width - Spawner.Formatter.Destination.Width - 10, 10);
+            Spawner.Formatter.Reformat();
             UpdateLevel(null);                      
         }
 
@@ -184,7 +184,7 @@ namespace Diner_Smash
                 Spawner.Update(gameTime);                
             }                      
             frameCounter.Update(gameTime);
-            DisplayDEBUGInfo();           
+            DisplayDEBUGInfo(gameTime);           
             base.Update(gameTime);
         }
 
@@ -199,34 +199,39 @@ namespace Diner_Smash
         }
 
         UserInterface.StackPanel DEBUGInformationStackPanel = new UserInterface.StackPanel();
-        public void DisplayDEBUGInfo()
+        public void DisplayDEBUGInfo(GameTime gameTime)
         {
             if (DEBUGInformationStackPanel.Components.Count == 0)
             {
                 DEBUGInformationStackPanel.CreateImage(BaseTexture, Color.Black * .75f, new Rectangle(10, 10, 0, 0));
-            }
-            else
-                DEBUGInformationStackPanel.Components.Clear();
-            if (IsDebugMode)
-            DEBUGInformationStackPanel.AddRange(false,
-                new UserInterface.InterfaceComponent().CreateText(PlacementMode ? "PLACEMENT MODE" : "DEBUG MODE", Color.White, new Point(10)));
-            DEBUGInformationStackPanel.
-                AddRange(false, !IsDebugMode ? new InterfaceComponent[] { frameCounter.Format()[0] } : frameCounter.Format());
-            try
-            {
-                if (IsDebugMode)
-                foreach (var c in Objects.Where(x => x is Player))
+
+                if (false)
                 {
-                    foreach (var t in c.ReturnDebugInfo())
+                    if (IsDebugMode)
                         DEBUGInformationStackPanel.AddRange(false,
-                            new UserInterface.InterfaceComponent().CreateText(t.Replace("*", ""), Color.White,
-                            t.StartsWith("*") ? new Point(10, 10) : new Point(15, 5)));
+                            new InterfaceComponent().CreateText(PlacementMode ? "PLACEMENT MODE" : "DEBUG MODE", Color.White, new Point(10)));
+                    DEBUGInformationStackPanel.
+                        AddRange(false, !IsDebugMode ? new InterfaceComponent[] { frameCounter.Format()[0] } : frameCounter.Format());
+                    try
+                    {
+                        if (IsDebugMode)
+                            foreach (var c in Objects.Where(x => x is Player))
+                            {
+                                foreach (var t in c.ReturnDebugInfo())
+                                    DEBUGInformationStackPanel.AddRange(false,
+                                        new InterfaceComponent().CreateText(t.Replace("*", ""), Color.White,
+                                        t.StartsWith("*") ? new Point(10, 10) : new Point(15, 5)));
+                            }
+                    }
+                    catch { }
+                    DEBUGInformationStackPanel.Reformat();
                 }
+                DEBUGInformationStackPanel.
+                    AddRange(false, !IsDebugMode ? new InterfaceComponent[] { frameCounter.Format()[0] } : frameCounter.Format());
+                DEBUGInformationStackPanel.AddToParent(UILayer);
             }
-            catch { }
-            DEBUGInformationStackPanel.Reformat(UILayer.Font);
-            if (!UILayer.Components.Contains(DEBUGInformationStackPanel))
-                UILayer.Components.Add(DEBUGInformationStackPanel);
+            frameCounter.Format();
+            DEBUGInformationStackPanel.Reformat();
         }
 
         /// <summary>
@@ -236,11 +241,10 @@ namespace Diner_Smash
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.CornflowerBlue);
-
             if (_loaded)
             {
                 spriteBatch.Begin(SpriteSortMode.Deferred, null, null, null, null, null, GameCamera.Transform(GraphicsDevice));
-                GameScene.Draw(spriteBatch);
+                GameScene.Draw(spriteBatch);                
                 if (Main.IsDebugMode)
                     Player?.PathFinder.DEBUG_DrawMap(spriteBatch);
                 try

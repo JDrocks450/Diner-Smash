@@ -5,12 +5,323 @@ using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using static Diner_Smash.UserInterface;
 
 namespace Diner_Smash
 {
-    public class UserInterface
+    public class InterfaceFont
+    {
+        public const float DEFSIZE = 24f;
+
+        static SpriteFont RegFont;
+        static SpriteFont BoldFont;
+
+        public SpriteFont RenderFont
+        {
+            get
+            {
+                switch (Style)
+                {
+                    case Styles.Regular:
+                        return RegFont;
+                    case Styles.Bold:
+                        return BoldFont;
+                    default:
+                        return RegFont;
+                }
+            }
+        }
+        public float RenderSize { get; internal set; }
+        float Scale
+        {
+            get => RenderSize / DEFSIZE;
+        }
+
+        public Vector2 Measure(string text)
+        {
+            return (RenderFont.MeasureString(text)*Scale);
+        }
+
+        public enum Styles
+        {
+            Regular,
+            Bold
+        }
+        public Styles Style { get; internal set; }
+
+        public static void LoadFonts()
+        {
+            RegFont = Main.Manager.Load<SpriteFont>("Font");
+            BoldFont = Main.Manager.Load<SpriteFont>("Bold");
+        }
+
+        public InterfaceFont(float Size = 12f, Styles Style = Styles.Regular)
+        {
+            this.Style = Style;
+            RenderSize = Size;            
+        }        
+
+        public void DrawString(SpriteBatch batch, string text, Vector2 Location, Color color)
+        {
+            batch.DrawString(RenderFont, text, Location, color, 0f, Vector2.Zero, Scale, SpriteEffects.None, 0f);
+        }
+    }
+
+    public class InterfaceComponent
+    {
+        public delegate void InvalidatedHandler();
+        public event InvalidatedHandler Invalidated;
+
+        public enum VerticalLock
+        {
+            None,
+            Top,
+            Center,
+            Bottom
+        }
+        public VerticalLock VLock;
+        public enum HorizontalLock
+        {
+            None,
+            Left,
+            Center,
+            Right
+        }
+        public HorizontalLock HLock;
+
+        public InterfaceParentComponent Parent;
+        public bool Exclusive { get; set; }
+        public bool AutoSizeWidth;
+        public bool AutoSizeHeight;
+        public object Tag;
+
+        public ObjectContext.AvailablityStates GetAvailablity
+        {
+            get;
+            internal set;
+        }
+        public enum Render
+        {
+            Texture2D,
+            InterfaceFont,
+            None
+        }
+        public Render GetRender
+        {
+            get;
+            internal set;
+        } = Render.None;
+
+        public Texture2D RenderTexture;
+        public Rectangle Destination
+        {
+            get => new Rectangle(LiteralLocation, Size);
+            set
+            {
+                LiteralLocation = value.Location;
+                Size = value.Size;
+                Invalidated?.Invoke();
+            }
+        }
+
+        /// <summary>
+        /// The desired location within the parent control.
+        /// </summary>
+        public Point Margin
+        {
+            get => new Point(X, Y);
+            set
+            {
+                var shouldinvalidate = false;
+                if (value.X != X || value.Y != Y)
+                    shouldinvalidate = true;
+                X = value.X;
+                Y = value.Y;
+                if (shouldinvalidate)
+                    Invalidated?.Invoke();
+            }
+        }
+
+        public Point Size
+        {
+            get => new Point(Width, Height);
+            set
+            {
+                var shouldinvalidate = false;
+                if (value.X != Width || value.Y != Height)
+                    shouldinvalidate = true;
+                Width = value.X;
+                Height = value.Y;
+                if (shouldinvalidate)
+                    Invalidated?.Invoke();
+            }
+        }
+
+        public int Width;
+        public int Height;
+        /// <summary>
+        /// Margin's X value
+        /// </summary>
+        public int X;
+        /// <summary>
+        /// Margin's Y value
+        /// </summary>
+        public int Y;
+
+        /// <summary>
+        /// Gets the point on the screen in pixels of the component.
+        /// </summary>
+        public Point LiteralLocation { get; internal set; }
+
+        public Point STACKPANEL_Padding;
+        public string RenderText;
+        public float TextSize;
+        public Color MaskingColor = Color.White;
+        public InterfaceFont Font = new InterfaceFont();
+
+        public InterfaceComponent CreateText(string Text, Color MaskingColor, Point Location, bool ChangeLocation = true)
+        {
+            RenderText = Text;
+            this.MaskingColor = MaskingColor;
+            if (ChangeLocation)
+                Destination = new Rectangle(Location, Point.Zero);
+            GetRender = Render.InterfaceFont;
+            return this;
+        }
+
+        public InterfaceComponent CreateText(InterfaceFont Font, string Text, Color MaskingColor, Point Location)
+        {
+            RenderText = Text;
+            this.MaskingColor = MaskingColor;
+            Destination = new Rectangle(Location, Point.Zero);
+            GetRender = Render.InterfaceFont;
+            this.Font = Font;
+            return this;
+        }
+
+        public InterfaceComponent CreateImage(Texture2D Texture, Color color, Rectangle destRect)
+        {
+            RenderTexture = Texture;
+            MaskingColor = color;
+            Destination = destRect;
+            GetRender = Render.Texture2D;
+            return this;
+        }
+
+        public Button CreateButton(string Text, Color BackgroundColor, Color ForeColor, Color Highlight, Color Click, Rectangle Space)
+        {
+            return new Button().CreateButton(Text, BackgroundColor, ForeColor, Highlight, Click, Space);
+        }
+
+        public TextBox CreateTextBox(string Text, Color BackgroundColor, Color ForeColor, Color Highlight, Color Click, Rectangle Space)
+        {
+            return new TextBox().CreateTextBox(Text, BackgroundColor, ForeColor, Highlight, Click, Space);
+        }
+
+        public virtual void AddToParent(InterfaceParentComponent Parent)
+        {
+            GetAvailablity = ObjectContext.AvailablityStates.Enabled;
+            this.Parent = Parent;
+            Parent.Components.Add(this);
+        }
+
+        /// <summary>
+        /// Prepares the component to be removed from its parent.
+        /// </summary>
+        /// <param name="remove">If false, the component will prepare to be disabled rather than be removed from parent.</param>
+        public virtual void RemoveFromParent(bool remove)
+        {
+            GetAvailablity = ObjectContext.AvailablityStates.Disabled;
+            if (remove)
+                Parent.Components.Remove(this);
+        }
+
+        public void SetCenterScreen()
+        {
+            HLock = HorizontalLock.Center;
+            VLock = VerticalLock.Center;
+        }
+
+        public virtual void AutoSize()
+        {
+            if (AutoSizeWidth)
+                Width = Parent.Width - (STACKPANEL_Padding.X * 2);
+            if (AutoSizeHeight)
+                Height = Parent.Height - (STACKPANEL_Padding.Y * 2);
+        }
+
+        public virtual void Update(GameTime gameTime)
+        {
+            var newLoc = Margin;
+            switch (HLock)
+            {                
+                case HorizontalLock.Left:
+                    newLoc.X = 0;
+                    break;
+                case HorizontalLock.Center:
+                    newLoc.X = Parent.Destination.Width / 2 - Size.X / 2;
+                    break;
+                case HorizontalLock.Right:
+                    newLoc.X = Parent.Destination.Width - Size.X;
+                    break;
+            }
+            switch (VLock)
+            {
+                case VerticalLock.Top:
+                    newLoc.Y = 0;
+                    break;
+                case VerticalLock.Center:
+                    newLoc.Y = Parent.Destination.Height / 2 - Size.Y / 2;
+                    break;
+                case VerticalLock.Bottom:
+                    newLoc.Y = Parent.Destination.Height - Size.Y;
+                    break;
+            }
+            newLoc += Parent.Destination.Location;
+            LiteralLocation = newLoc;
+            AutoSize();
+        }
+
+        public virtual void Draw(SpriteBatch sprite)
+        {
+            if (GetAvailablity != ObjectContext.AvailablityStates.Invisible)
+                switch (GetRender)
+                {
+                    case InterfaceComponent.Render.InterfaceFont:
+                        Font.DrawString(sprite, RenderText, Destination.Location.ToVector2(), MaskingColor);
+                        break;
+                    case InterfaceComponent.Render.Texture2D:
+                        sprite.Draw(RenderTexture, Destination, MaskingColor);
+                        break;
+                }
+        }
+    }
+
+    public class InterfaceParentComponent : InterfaceComponent
+    {
+        public List<InterfaceComponent> Components = new List<InterfaceComponent>();
+        public InterfaceParentComponent()
+        {
+
+        }
+
+        public override void AutoSize()
+        {
+            if (AutoSizeWidth)
+                Width = Components.Select(x => x.Width).Max() + STACKPANEL_Padding.X * 2;
+            if (AutoSizeHeight)
+                Height = Components.Select(x => x.Y + x.Height).Max() + STACKPANEL_Padding.Y;
+        }
+
+        public override void RemoveFromParent(bool remove = true)
+        {
+            foreach (var c in Components)
+                c.RemoveFromParent(false);
+            base.RemoveFromParent(remove);
+        }
+    }
+
+    public class UserInterface : InterfaceParentComponent
     {
         public class ObjectSpawnList : InterfaceComponent
         {
@@ -22,7 +333,7 @@ namespace Diner_Smash
             {
                 this.Content = Content;
                 Formatter = new StackPanel();
-                var objsList = new UserInterface.InterfaceComponent[Enum.GetNames(typeof(GameObject.ObjectNameTable)).Count() + 1];
+                var objsList = new InterfaceComponent[Enum.GetNames(typeof(GameObject.ObjectNameTable)).Count() + 1];
                 int i = 1;
                 objsList[0] = new InterfaceComponent().CreateText("SPAWN OBJECT", Color.White, new Point(15));
                 foreach (var s in Enum.GetNames(typeof(GameObject.ObjectNameTable)))
@@ -38,7 +349,7 @@ namespace Diner_Smash
                     i++;
                 }
                 Formatter.AddRange(true, objsList);
-                Formatter.Location = Location;
+                Formatter.Margin = Location;
                 Main.GlobalInput.UserInput += GlobalInput_UserInput;
             }
 
@@ -64,17 +375,17 @@ namespace Diner_Smash
                 Main.AddObject(value);
             }
 
-            public override void Draw(SpriteBatch batch, SpriteFont Font)
+            public override void Draw(SpriteBatch batch)
             {
                 if (IsVisible)
-                    Formatter.Draw(batch, Font);
+                    Formatter.Draw(batch);
             }
         }
 
-        public class TextBox : UserInterface.InterfaceComponent
+        public class TextBox : InterfaceComponent
         {
-            public delegate void OnTextChangedEventHandler(TextBox sender, string NewText, string Changes);
-            public event OnTextChangedEventHandler TextChanged;
+            public delegate void OnTextAcceptedHandler(object sender);
+            public event OnTextAcceptedHandler Accepted;
 
             public Color Background, Foreground, High, Active;
             public bool IsMouseOver = false;
@@ -95,7 +406,8 @@ namespace Diner_Smash
             /// </summary>
             public TextBox()
             {
-                CreateButton("Untitled", Color.Black * .75f, Color.White, Color.Gray * .75f, Color.Gray,
+                GetAvailablity = ObjectContext.AvailablityStates.Disabled;
+                CreateTextBox("Untitled", Color.Black * .75f, Color.White, Color.Gray * .75f, Color.Gray,
                 new Rectangle(0, 0, 500, 50));
             }
 
@@ -107,8 +419,10 @@ namespace Diner_Smash
                 High = Highlight;
                 this.Active = Active;
                 Destination = Space;
-                Main.GlobalInput.UserInput += GlobalInput_UserInput;
+                if (GetAvailablity != ObjectContext.AvailablityStates.Enabled)
+                    Main.GlobalInput.UserInput += GlobalInput_UserInput;
                 GetRender = Render.Texture2D;
+                GetAvailablity = ObjectContext.AvailablityStates.Enabled;
                 return this;
             }
 
@@ -154,6 +468,9 @@ namespace Diner_Smash
                             case Keys.OemPeriod:
                                 letter = ".";
                                 break;
+                            case Keys.Enter:
+                                Accepted?.Invoke(this);
+                                return;
                         }                        
                         if (UpperCase)
                             letter = letter.ToUpper();
@@ -167,10 +484,17 @@ namespace Diner_Smash
                 }
             }
 
+            public bool CursorVisible = true;
+            public const float BLINK_INTERVAL = .7f;
+
             TimeSpan _timeSinceLastHold;
+            TimeSpan _timeSinceBlinkChange;
             bool canHold;
             public override void Update(GameTime gameTime)
             {
+                /// TODO: make textbox input more responsive
+                if (GetAvailablity == ObjectContext.AvailablityStates.Disabled)
+                    return;
                 var mouse = Mouse.GetState();
                 var MouseRect = new Rectangle(mouse.Position, new Point(1, 1));
                 IsMouseOver = false;
@@ -225,10 +549,16 @@ namespace Diner_Smash
                         _timeSinceLastHold = TimeSpan.Zero;
                     }
                 }
+                _timeSinceBlinkChange += gameTime.ElapsedGameTime;
+                if (_timeSinceBlinkChange.TotalSeconds > BLINK_INTERVAL)
+                {
+                    CursorVisible = !CursorVisible;
+                    _timeSinceBlinkChange = TimeSpan.Zero;
+                }
                 base.Update(gameTime);
             }
 
-            public override void Draw(SpriteBatch sprite, SpriteFont Font)
+            public override void Draw(SpriteBatch sprite)
             {
                 Color DrawColor = Background;
                 if (IsMouseOver && Mouse.GetState().LeftButton != ButtonState.Pressed) //Hover
@@ -238,18 +568,21 @@ namespace Diner_Smash
                 if (IsActive) //Active
                     DrawColor = Active;
                 sprite.Draw(Main.BaseTexture, Destination, DrawColor);
-                var cursorloc = Font.MeasureString(RenderText.Substring(0, CursorPosition)).ToPoint();
-                var textSize = Font.MeasureString(RenderText);
-                sprite.DrawString(Font, RenderText,
+                var cursorloc = Font.Measure(RenderText.Substring(0, CursorPosition)).ToPoint();
+                var textSize = Font.Measure(RenderText);
+                if (textSize.Y == 0)
+                    textSize.Y = Font.Measure("REMY").Y;
+                Font.DrawString(sprite, RenderText,
                     new Vector2(Destination.X + (int)(Destination.Height - textSize.Y),
                     Destination.Y + (Destination.Height / 2) - (int)(textSize.Y / 2)),
                     Foreground);
-                sprite.Draw(Main.BaseTexture, new Rectangle(Destination.X + (Destination.Height - (int)textSize.Y) + cursorloc.X,
-                    Destination.Y + (Destination.Height / 2) - (int)(textSize.Y / 2), 2, (int)textSize.Y), Foreground); //Draw cursor
+                if (CursorVisible)
+                    sprite.Draw(Main.BaseTexture, new Rectangle(Destination.X + (Destination.Height - (int)textSize.Y) + cursorloc.X,
+                        Destination.Y + (Destination.Height / 2) - (int)(textSize.Y / 2), 2, (int)textSize.Y), Foreground); //Draw cursor
             }
         }
 
-        public class Button : UserInterface.InterfaceComponent
+        public class Button : InterfaceComponent
         {
             public delegate void OnClickEventHandler(Button sender);
             public event OnClickEventHandler OnClick;
@@ -274,16 +607,21 @@ namespace Diner_Smash
             {
                 if (e.MouseLeftClick)
                 {
-                    if (IsMouseOver)
-                    {
+                    if (IsMouseOver)                   
                         OnClick?.Invoke(this);
-                        IsMouseOver = false;
-                    }
                 }
+            }
+
+            public override void RemoveFromParent(bool remove)
+            {
+                IsMouseOver = false;
+                base.RemoveFromParent(remove);
             }
 
             public override void Update(GameTime gameTime)
             {
+                if (GetAvailablity == ObjectContext.AvailablityStates.Disabled)
+                    return;
                 var mouse = Mouse.GetState();
                 var MouseRect = new Rectangle(mouse.Position, new Point(1, 1));
                 IsMouseOver = false;
@@ -292,7 +630,7 @@ namespace Diner_Smash
                 base.Update(gameTime);
             }
 
-            public override void Draw(SpriteBatch sprite, SpriteFont Font)
+            public override void Draw(SpriteBatch sprite)
             {
                 Color DrawColor = Background;
                 if (IsMouseOver && Mouse.GetState().LeftButton != ButtonState.Pressed) //Hover
@@ -300,8 +638,8 @@ namespace Diner_Smash
                 if (IsMouseOver && Mouse.GetState().LeftButton == ButtonState.Pressed) //Hover
                     DrawColor = Click;
                 sprite.Draw(Main.BaseTexture, Destination, DrawColor);
-                var textSize = Font.MeasureString(RenderText);
-                sprite.DrawString(Font, RenderText,
+                var textSize = Font.Measure(RenderText);
+                Font.DrawString(sprite, RenderText,
                     new Vector2(Destination.X + (Destination.Width / 2) - (int)(textSize.X / 2),
                     Destination.Y + (Destination.Height / 2) - (int)(textSize.Y / 2)), 
                     Foreground);
@@ -341,22 +679,30 @@ namespace Diner_Smash
                 TotalSeconds += gameTime.ElapsedGameTime.TotalSeconds;
             }
 
-            public UserInterface.InterfaceComponent[] Format()
+            InterfaceComponent[] formatBuffer;
+            public InterfaceComponent[] Format()
             {
-                return new InterfaceComponent[]
+                if (formatBuffer == null)
                 {
-                    new InterfaceComponent().CreateText($"FPS: {CurrentFramesPerSecond}", CurrentFramesPerSecond > 30 ? Color.Green : Color.Red, new Point(10)),
-                    new InterfaceComponent().CreateText($"Total Frames: {TotalFrames}", Color.White, new Point(10, 5)),
-                    new InterfaceComponent().CreateText($"Average FPS: {AverageFramesPerSecond}", Color.White, new Point(10, 5)),
-                    new InterfaceComponent().CreateText(string.Format("Game Time: {0:hh\\:mm\\:ss}", TotalGameTime), Color.White, new Point(10, 5))
-                };
+                    formatBuffer = new InterfaceComponent[]
+                    {
+                        new InterfaceComponent().CreateText($"FPS: {CurrentFramesPerSecond}", CurrentFramesPerSecond > 30 ? Color.Green : Color.Red, new Point(10)),
+                        new InterfaceComponent().CreateText($"Total Frames: {TotalFrames}", Color.White, new Point(10, 5)),
+                        new InterfaceComponent().CreateText($"Average FPS: {AverageFramesPerSecond}", Color.White, new Point(10, 5)),
+                        new InterfaceComponent().CreateText(string.Format("Game Time: {0:hh\\:mm\\:ss}", TotalGameTime), Color.White, new Point(10, 5))
+                    };
+                    return formatBuffer;
+                }
+                formatBuffer[0].CreateText($"FPS: {CurrentFramesPerSecond}", CurrentFramesPerSecond > 30 ? Color.Green : Color.Red, new Point(10), false);
+                formatBuffer[1].CreateText($"Total Frames: {TotalFrames}", Color.White, new Point(10, 5), false);
+                formatBuffer[2].CreateText($"Average FPS: {AverageFramesPerSecond}", Color.White, new Point(10, 5), false);
+                formatBuffer[3].CreateText(string.Format("Game Time: {0:hh\\:mm\\:ss}", TotalGameTime), Color.White, new Point(10, 5), false);
+                return formatBuffer;
             }
         }
 
-        public class StackPanel : InterfaceComponent
+        public class StackPanel : InterfaceParentComponent
         {
-            public List<InterfaceComponent> Components = new List<InterfaceComponent>();
-
             public StackPanel(Color Background = default, bool UseDefaultBackground = true)
             {
                 if (UseDefaultBackground)
@@ -371,7 +717,7 @@ namespace Diner_Smash
                     this.MaskingColor = Background;
                     this.GetRender = Render.Texture2D;
                 }
-                Invalidated += () => Reformat(Main.UILayer.Font);
+                Invalidated += () => Reformat();
             }
 
             /// <summary>
@@ -382,53 +728,56 @@ namespace Diner_Smash
             {
                 foreach (var c in components)
                 {
+                    if (c is null)
+                        continue;
                     c.STACKPANEL_Padding = c.Destination.Location;
-                    c.Parent = this;
+                    c.AddToParent(this);
                 }
-                Components.AddRange(components);
-                if (reformat) Reformat(Main.UILayer.Font);
+                if (reformat) Reformat();
             }
 
             /// <summary>
             /// Stacks each component visually.
             /// </summary>
             /// <param name="Font">If no components are SpriteFont components leave this default.</param>
-            public void Reformat(SpriteFont Font = default)
+            public void Reformat()
             {
                 int heightPadding = -1, widthPadding = -1;
                 int widestComponent = -1;
-                Point _lastPoint = Destination.Location;
+                Point _lastPoint = Point.Zero;
                 foreach (var c in Components)
                 {
                     _lastPoint.Y += c.STACKPANEL_Padding.Y;
-                    c.Location = new Point(_lastPoint.X = Destination.X + c.STACKPANEL_Padding.X, _lastPoint.Y);
+                    c.Y = _lastPoint.Y;
+                    c.HLock = HorizontalLock.Center;
                     if (heightPadding == -1)
                         heightPadding = c.STACKPANEL_Padding.Y;
                     if (widthPadding == -1)
                         widthPadding = c.STACKPANEL_Padding.X;
-                    if (c.GetRender == Render.SpriteFont)
+                    if (c.GetRender == Render.InterfaceFont)
                     {
-                        var _temp = Font.MeasureString(c.RenderText).ToPoint();
+                        var _temp = c.Font.Measure(c.RenderText).ToPoint();
                         c.Size = _temp;
                         _lastPoint.Y += _temp.Y;
-                        if (widestComponent < _temp.X + c.STACKPANEL_Padding.X)
-                            widestComponent = _temp.X + c.STACKPANEL_Padding.X;
+                        if (widestComponent < _temp.X + (c.STACKPANEL_Padding.X * 2))
+                            widestComponent = _temp.X + (c.STACKPANEL_Padding.X * 2);
                     }
                     else if (c.GetRender == Render.Texture2D)
                     {
                         _lastPoint.Y += c.Destination.Height;
-                        if (widestComponent < c.Destination.Width + c.STACKPANEL_Padding.X)
-                            widestComponent = c.Destination.Width + c.STACKPANEL_Padding.X;
+                        if (widestComponent < c.Destination.Width + (c.STACKPANEL_Padding.X * 2))
+                            widestComponent = c.Destination.Width + (c.STACKPANEL_Padding.X * 2);
                     }
+                    if (c.Width == -1)
+                        c.AutoSizeWidth = true;
+                    if (c.Height == -1)
+                        c.AutoSizeHeight = true;
                 }
+                STACKPANEL_Padding = new Point(widthPadding, heightPadding);
                 if (Destination.Height == 0)
                     AutoSizeHeight = true;
-                if (AutoSizeHeight)
-                    Height = heightPadding + _lastPoint.Y - Destination.Y;
                 if (Destination.Width == 0)
                     AutoSizeWidth = true;
-                if (AutoSizeWidth)
-                    Width = widthPadding + widestComponent;
             }
 
             public override void Update(GameTime gameTime)
@@ -438,141 +787,20 @@ namespace Diner_Smash
                     c.Update(gameTime);
             }
 
-            public override void Draw(SpriteBatch batch, SpriteFont font = default)
+            public override void Draw(SpriteBatch batch)
             {
-                base.Draw(batch, default);             
+                base.Draw(batch);             
                 foreach(var c in Components)
-                    c.Draw(batch, Main.UILayer.Font);                
+                    c.Draw(batch);                
             }
-        }
+        }        
 
-        public class InterfaceComponent
-        {
-            public delegate void InvalidatedHandler();
-            public event InvalidatedHandler Invalidated;
-
-            public bool CenterScreen;
-            public StackPanel Parent;
-            public bool Exclusive { get; set; }
-            public bool AutoSizeWidth;
-            public bool AutoSizeHeight;
-            public enum Render
-            {
-                Texture2D,
-                SpriteFont,
-                None
-            }
-            public Texture2D RenderTexture;
-            public Rectangle Destination
-            {
-                get => new Rectangle(Location, Size);
-                set
-                {
-                    Location = value.Location;
-                    Size = value.Size;
-                    Invalidated?.Invoke();
-                }
-            }
-
-            public Point Location
-            {
-                get => new Point(X, Y);
-                set
-                {
-                    var shouldinvalidate = false;
-                    if (value.X != X || value.Y != Y)
-                        shouldinvalidate = true;
-                    X = value.X;
-                    Y = value.Y;
-                    if (shouldinvalidate)
-                        Invalidated?.Invoke();
-                }
-            }
-
-            public Point Size
-            {
-                get => new Point(Width, Height);
-                set
-                {
-                    var shouldinvalidate = false;
-                    if (value.X != Width || value.Y != Height)
-                        shouldinvalidate = true;
-                    Width = value.X;
-                    Height = value.Y;
-                    if (shouldinvalidate)
-                        Invalidated?.Invoke();
-                }
-            }
-            public int Width;
-            public int Height;
-            public int X;
-            public int Y;
-            public Point STACKPANEL_Padding;
-            public string RenderText;
-            public float TextSize;
-            public Color MaskingColor = Color.White;
-            public Render GetRender
-            {
-                get;
-                internal set;
-            } = Render.None;
-            public object Tag;
-
-            public InterfaceComponent CreateText(string Text, Color MaskingColor, Point Location)
-            {
-                RenderText = Text;
-                this.MaskingColor = MaskingColor;
-                Destination = new Rectangle(Location, Point.Zero);
-                GetRender = Render.SpriteFont;
-                return this;
-            }
-
-            public InterfaceComponent CreateImage(Texture2D Texture, Color color, Rectangle destRect)
-            {
-                RenderTexture = Texture;
-                MaskingColor = color;
-                Destination = destRect;
-                GetRender = Render.Texture2D;
-                return this;
-            }
-
-            public Button CreateButton(string Text, Color BackgroundColor, Color ForeColor, Color Highlight, Color Click, Rectangle Space)
-            {
-                return new Button().CreateButton(Text, BackgroundColor, ForeColor, Highlight, Click, Space);
-            }
-
-            public TextBox CreateTextBox(string Text, Color BackgroundColor, Color ForeColor, Color Highlight, Color Click, Rectangle Space)
-            {
-                return new TextBox().CreateTextBox(Text, BackgroundColor, ForeColor, Highlight, Click, Space);
-            }
-
-            public virtual void Update(GameTime gameTime)
-            {
-                if (Parent == null && CenterScreen)                
-                    Location = new Point(UI_ScreenSize.X / 2 - Size.X / 2, UI_ScreenSize.Y / 2 - Size.Y / 2);                
-            }
-
-            public virtual void Draw(SpriteBatch sprite, SpriteFont Font)
-            {
-                switch (GetRender)
-                {
-                    case InterfaceComponent.Render.SpriteFont:
-                        sprite.DrawString(Font, RenderText, Destination.Location.ToVector2(), MaskingColor);
-                        break;
-                    case InterfaceComponent.Render.Texture2D:
-                        sprite.Draw(RenderTexture, Destination, MaskingColor);
-                        break;
-                }
-            }
-        }
-        public SpriteFont Font;
-        public List<InterfaceComponent> Components = new List<InterfaceComponent>();
-        public static Point UI_ScreenSize;
+        public Point UI_ScreenSize { get => Size; }
 
         public UserInterface(ContentManager content, Point Viewport)
         {
-            Font = content.Load<SpriteFont>("Font");
-            UI_ScreenSize = Viewport;
+            InterfaceFont.LoadFonts();
+            Size = Viewport;
         }
 
         public StackPanel Notification;
@@ -585,8 +813,10 @@ namespace Diner_Smash
             if (IsNotificationOpen)
                 HideNotification();
             Notification = new StackPanel(Background, false);
-            Notification.AddRange(true, new InterfaceComponent().CreateText(text, Foreground, new Point(30, 20)));
-            Components.Add(Notification);
+            Notification.HLock = HorizontalLock.Center;
+            Notification.VLock = VerticalLock.Bottom;
+            Notification.AddRange(true, new InterfaceComponent().CreateText(new InterfaceFont(14, InterfaceFont.Styles.Bold), text, Foreground, new Point(30, 20)));
+            Notification.AddToParent(this);
             _timeSinceOpened = TimeSpan.Zero;
             _notifyTimer = OpenFor;
             if (OpenFor != default)
@@ -601,7 +831,7 @@ namespace Diner_Smash
             Components.Remove(Notification);
         }
 
-        public void Update(GameTime gameTime)
+        public new void Update(GameTime gameTime)
         {
             var Viewport = UI_ScreenSize;
             try
@@ -616,14 +846,9 @@ namespace Diner_Smash
                 if (_timeSinceOpened >= _notifyTimer)
                     HideNotification();
             }     
-            if (IsNotificationOpen)
-            {
-                Notification.Location = 
-                    new Point(Viewport.X / 2 - Notification.Destination.Width / 2, Viewport.Y - Notification.Destination.Height);
-            }
         }
 
-        public void Draw(SpriteBatch sprite)
+        public new void Draw(SpriteBatch sprite)
         {
             try
             {
@@ -631,7 +856,7 @@ namespace Diner_Smash
                     sprite.Draw(Main.BaseTexture, new Rectangle(0, 0, UI_ScreenSize.X, UI_ScreenSize.Y), Color.Black * .5f);
                 foreach (var c in Components)
                 {
-                    c.Draw(sprite, Font);
+                    c.Draw(sprite);
                 }
             }
             catch

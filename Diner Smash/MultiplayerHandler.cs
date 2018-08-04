@@ -10,6 +10,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using System.Timers;
 using static Diner_Smash.UserInterface;
 
 namespace Diner_Smash
@@ -20,6 +21,17 @@ namespace Diner_Smash
         public MultiplayerHandler(int mode = 0)
         {
             MultiplayerMode = mode;
+            Main.GlobalInput.UserInput += GlobalInput_UserInput;
+        }
+
+        private async void GlobalInput_UserInput(InputHelper.InputEventArgs e)
+        {
+            if (e.PressedKeys.Contains(Keys.Enter) && Ready && !_chatBoxOpened)
+            {
+                var str = await PromptForTextMessage(true);
+                if (str != "<break>")
+                    MultiplayerClient.SendPacketToServer(DSPacket.Format(3, Encoding.ASCII.GetBytes(str)));
+            }
         }
 
         /// <summary>
@@ -28,25 +40,43 @@ namespace Diner_Smash
         /// 2 = join LAN hosted game
         /// </summary>
         public int MultiplayerMode { get; set; }
+        public List<string> ChatMessages = new List<string>();
 
-        StackPanel hostJoinPrompt;
-        public void PromptUser()
+        #region MultiplayerPrompts
+        public Task PromptUser()
         {
-            hostJoinPrompt = new StackPanel(Color.DarkOrange * .75f, false);
-            hostJoinPrompt.CenterScreen = true;
-            hostJoinPrompt.Exclusive = true;
-            hostJoinPrompt.AddRange(true,
-                new InterfaceComponent().CreateText("What would you like to do?", Color.White, new Point(10)),
-                new InterfaceComponent().CreateButton("Host Server", Color.Orange * .5f, Color.White,
-                    Color.MonoGameOrange * .5f, Color.MonoGameOrange, new Rectangle(new Point(10, 5), new Point(200, 50))),
-                new InterfaceComponent().CreateButton("Join Server", Color.Orange * .5f, Color.White,
-                    Color.MonoGameOrange * .5f, Color.MonoGameOrange, new Rectangle(new Point(10, 5), new Point(200, 50))),
-                new InterfaceComponent().CreateButton("Create Level", Color.Orange * .5f, Color.White,
-                    Color.MonoGameOrange * .5f, Color.MonoGameOrange, new Rectangle(new Point(10, 5), new Point(200, 50))));
-            (hostJoinPrompt.Components[1] as Button).OnClick += HostButtonClick;
-            (hostJoinPrompt.Components[2] as Button).OnClick += JoinButtonClick;
-            (hostJoinPrompt.Components[3] as Button).OnClick += LevelCreatorButtonClick;
-            Main.UILayer.Components.Add(hostJoinPrompt);
+            return Task.Run(() =>
+            {
+                var hostJoinPrompt = new StackPanel(Color.DarkOrange * .75f, false);
+                var done = false;
+                hostJoinPrompt.SetCenterScreen();                
+                hostJoinPrompt.Exclusive = true;
+                hostJoinPrompt.AddRange(true,
+                    new InterfaceComponent().CreateText(new InterfaceFont(12, InterfaceFont.Styles.Bold), "What would you like to do?", Color.White, new Point(10)),
+                    new InterfaceComponent().CreateButton("Host Server", Color.Orange * .5f, Color.White,
+                        Color.MonoGameOrange * .5f, Color.MonoGameOrange, new Rectangle(new Point(10, 5), new Point(-1, 50))),
+                    new InterfaceComponent().CreateButton("Join Server", Color.Orange * .5f, Color.White,
+                        Color.MonoGameOrange * .5f, Color.MonoGameOrange, new Rectangle(new Point(10, 5), new Point(-1, 50))),
+                    new InterfaceComponent().CreateButton("Create Level", Color.Orange * .5f, Color.White,
+                        Color.MonoGameOrange * .5f, Color.MonoGameOrange, new Rectangle(new Point(10, 5), new Point(-1, 50))));
+                (hostJoinPrompt.Components[1] as Button).OnClick += (Button sender) =>
+                {
+                    MultiplayerMode = 0;
+                    InitializeMultiplayer(Main.SourceLevel);
+                    done = true;
+                };
+                (hostJoinPrompt.Components[2] as Button).OnClick += (Button sender) =>
+                {
+                    MultiplayerMode = 1;
+                    Main.Objects.Clear();
+                    InitializeMultiplayer();
+                    done = true;
+                };
+                (hostJoinPrompt.Components[3] as Button).OnClick += (Button sender) => { done = true; LevelCreatorButtonClick(sender); };
+                hostJoinPrompt.AddToParent(Main.UILayer);
+                while (!done) { }
+                hostJoinPrompt.RemoveFromParent(true);
+            });
         }
 
         private void LevelCreatorButtonClick(Button sender)
@@ -54,22 +84,101 @@ namespace Diner_Smash
             Main.FLAG_NetPlayGameStarted = true;
             Ready = true;
             System.Windows.Forms.MessageBox.Show("Welcome to Creator Mode!" + Environment.NewLine
-               + "Check the GitHub README for Creator controls.", "Creator Mode");
-            Main.UILayer.Components.Remove(hostJoinPrompt);
+               + "Check the GitHub README for Creator controls.", "Creator Mode");            
         }
 
-        private void JoinButtonClick(Button sender)
-        {
-            MultiplayerMode = 1;
-            Main.Objects.Clear();
-            InitializeMultiplayer();
+        bool _chatBoxOpened = false;
+        private Task<string> PromptForTextMessage(bool ShowTextBox)
+        {            
+            return Task.Run(() => {
+                if (_chatBoxOpened)
+                    return "<break>";
+                if (ShowTextBox)
+                    _chatBoxOpened = true;
+                else
+                    _chatBoxOpened = false;
+                var textPrompt = new StackPanel(Color.Black * .75f, false);
+                var done = "";
+                textPrompt.HLock = InterfaceComponent.HorizontalLock.Left;
+                textPrompt.VLock = InterfaceComponent.VerticalLock.Bottom;
+                textPrompt.Exclusive = ShowTextBox;
+                var updatingChatSummary = new InterfaceComponent().CreateText("", Color.White, new Point(10));
+                int _prevChatMessages = -1;
+                void UpdateChat()
+                {
+                    if (_prevChatMessages != ChatMessages.Count)
+                    {
+                        if (ChatMessages.Any())
+                            updatingChatSummary.RenderText =
+                                string.Join(Environment.NewLine, ChatMessages.ToArray());
+                        else
+                            updatingChatSummary.RenderText = "Nobody has said anything yet";
+                        _prevChatMessages = ChatMessages.Count;
+                        textPrompt.Reformat();
+                    }
+                }
+                textPrompt.AddRange(true, updatingChatSummary,
+                    ShowTextBox ? new InterfaceComponent().CreateTextBox("", Color.Black * .65f, Color.White,
+                        Color.Black * .5f, Color.MidnightBlue * .5f, new Rectangle(new Point(10, 5), new Point(-1, 35))) : null);
+                if (ShowTextBox)
+                {
+                    (textPrompt.Components[1] as TextBox).IsActive = true;
+                    (textPrompt.Components[1] as TextBox).Accepted += (object sender) =>
+                    {
+                        done = ((TextBox)sender).RenderText;
+                        if (string.IsNullOrEmpty(done))
+                            done = "<break>";
+                    };
+                }
+                textPrompt.AddToParent(Main.UILayer);
+                var timer = new Timer(5000);
+                timer.Elapsed += (object sender, ElapsedEventArgs e) => { done = "<break>"; timer.Dispose(); };
+                if (!ShowTextBox)
+                    timer.Start();
+                while (string.IsNullOrEmpty(done)) { UpdateChat(); }
+                textPrompt.RemoveFromParent();
+                _chatBoxOpened = false;
+                return done;
+            });
         }
 
-        private void HostButtonClick(Button sender)
+        private Task<IPAddress> PromptForIP()
         {
-            MultiplayerMode = 0;
-            InitializeMultiplayer(Main.SourceLevel);
+            return Task.Run(() =>
+            {
+                var IPsubmit = "";
+                var hostJoinPrompt = new StackPanel(Color.RoyalBlue * .75f, false);
+                hostJoinPrompt.SetCenterScreen();
+                hostJoinPrompt.Exclusive = true;
+                hostJoinPrompt.AddRange(true,
+                    new InterfaceComponent().CreateText("Enter the Host's IP Address", Color.White, new Point(10)),
+                    new InterfaceComponent().CreateTextBox("", Color.Blue * .5f, Color.White,
+                        Color.DeepSkyBlue * .75f, Color.DeepSkyBlue, new Rectangle(new Point(10, 5), new Point(200, 50))),
+                    new InterfaceComponent().CreateButton("Join", Color.Blue * .5f, Color.White,
+                        Color.DeepSkyBlue * .75f, Color.DeepSkyBlue, new Rectangle(new Point(10, 5), new Point(200, 50))));
+                void Event(object sender)
+                {
+                    IPsubmit = ((hostJoinPrompt.Components[1] as TextBox).RenderText);
+                }
+                (hostJoinPrompt.Components[2] as Button).OnClick += Event;
+                (hostJoinPrompt.Components[1] as TextBox).Accepted += Event;
+                hostJoinPrompt.AddToParent(Main.UILayer);                
+                onError:
+                while (IPsubmit == "") { }
+                var IP = IPAddress.None;
+                try
+                {
+                    if (IPsubmit == "localhost")
+                        IP = IPAddress.Loopback;
+                    else
+                        IP = IPAddress.Parse(IPsubmit);
+                }
+                catch (FormatException) { IPsubmit = ""; goto onError; }
+                hostJoinPrompt.RemoveFromParent();
+                return IP;
+            });
         }
+        #endregion
 
         public bool Ready = false;
 
@@ -78,7 +187,6 @@ namespace Diner_Smash
         /// </summary>
         public async void InitializeMultiplayer(LevelSave Level = null)
         {
-            Main.UILayer.Components.Remove(hostJoinPrompt);
             var JoinIP = IPAddress.Parse("127.0.0.1");
             switch (MultiplayerMode)
             {
@@ -91,6 +199,7 @@ namespace Diner_Smash
                     break;
             }
             MultiplayerClient = new Client();
+            #region Subscribe to events
             MultiplayerClient.OnLevelChanged += MultiplayerClient_OnLevelChanged;
             MultiplayerClient.RemovedFromMatch += MultiplayerClient_RemovedFromMatch;
             MultiplayerClient.HostStartedGame += MultiplayerClient_HostStartedGame;
@@ -99,11 +208,30 @@ namespace Diner_Smash
             MultiplayerClient.OnNavigation += MultiplayerClient_OnNavigation;
             MultiplayerClient.OnInteraction += MultiplayerClient_OnInteraction;
             MultiplayerClient.OnPersonSeated += MultiplayerClient_OnPersonSeated;
+            MultiplayerClient.OnMessageReceived += MultiplayerClient_OnMessageReceived;
+            #endregion
             MultiplayerClient.StartGameClient(JoinIP);
             if (MultiplayerMode == 0 && Level != null)
                 MultiplayerClient.RequestLevelChange(Level.Serialize());
             Ready = true;
             Main.UILayer.ShowNotification("Waiting for Host to Start Game...", Color.Red * .5f, Color.White);
+        }
+
+        /// <summary>
+        /// Launches the server program
+        /// </summary>
+        public static void CreateServer()
+        {
+            var p = new ProcessStartInfo();
+            p.FileName = Server.GetFileName;
+            p.Arguments = "server";
+            Process.Start(p);
+        }
+
+        private void MultiplayerClient_OnMessageReceived(string sender, string message)
+        {
+            ChatMessages.Add($"{sender}: {message}");
+            PromptForTextMessage(false);
         }
 
         private void MultiplayerClient_DisconnectedFromGame(string message)
@@ -112,39 +240,7 @@ namespace Diner_Smash
             System.Windows.Forms.MessageBox.Show(message, "Disconnected");
             Ready = false;
             Main.UpdateLevel(null);
-        }
-
-        private Task<IPAddress> PromptForIP()
-        {
-            return Task.Run(() =>
-            {
-                var IPsubmit = "";
-                var hostJoinPrompt = new StackPanel(Color.RoyalBlue * .75f, false);
-                hostJoinPrompt.CenterScreen = true;
-                hostJoinPrompt.Exclusive = true;
-                hostJoinPrompt.AddRange(true,
-                    new InterfaceComponent().CreateText("Enter the Host's IP Address", Color.White, new Point(10)),
-                    new InterfaceComponent().CreateTextBox("", Color.Blue * .5f, Color.White,
-                        Color.DeepSkyBlue * .75f, Color.DeepSkyBlue, new Rectangle(new Point(10, 5), new Point(200, 50))),
-                    new InterfaceComponent().CreateButton("Join", Color.Blue * .5f, Color.White,
-                        Color.DeepSkyBlue * .75f, Color.DeepSkyBlue, new Rectangle(new Point(10, 5), new Point(200, 50))));
-                (hostJoinPrompt.Components[2] as Button).OnClick += (Button sender) =>
-                    IPsubmit = ((hostJoinPrompt.Components[1] as TextBox).RenderText);
-                Main.UILayer.Components.Add(hostJoinPrompt);
-                onError:
-                while (IPsubmit == "") { }
-                var IP = IPAddress.None;
-                try
-                {
-                    if (IPsubmit == "localhost")
-                        IP = IPAddress.Loopback;
-                    else
-                        IP = IPAddress.Parse(IPsubmit);
-                } catch (FormatException) { IPsubmit = ""; goto onError; }
-                Main.UILayer.Components.Remove(hostJoinPrompt);
-                return IP;
-            });
-        }
+        }        
 
         private void MultiplayerClient_HostStartedGame(string message)
         {
@@ -192,20 +288,8 @@ namespace Diner_Smash
         private void MultiplayerClient_OnLevelChanged(byte[] NewData)
         {
             var l = LevelSave.DeserializeFromServer(NewData);
-            System.Windows.Forms.MessageBox.Show("The dining room has changed. Like what you see?");
             Main.UpdateLevel(l);
-        }
-
-        /// <summary>
-        /// Launches the server program
-        /// </summary>
-        public static void CreateServer()
-        {
-            var p = new ProcessStartInfo();
-            p.FileName = Server.GetFileName;
-            p.Arguments = "server";
-            Process.Start(p);
-        }
+        }        
 
         public void NavigationRequest(Player sender, Point destination)
         {

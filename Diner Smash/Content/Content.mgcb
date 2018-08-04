@@ -188,3 +188,10 @@
 /processorParam:TextureFormat=Color
 /build:Objects/Table/PART_Menu.png
 
+#begin Bold.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Compressed
+/build:Bold.spritefont
+
