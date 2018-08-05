@@ -25,7 +25,7 @@ namespace Diner_Smash
         public void Listen()
         {
             bool left = false, right = false;
-            Keys[] finalizekeys = new Keys[0];
+            List<Keys> finalizekeys = new List<Keys>();
             var mState = Mouse.GetState();
             if (mState.LeftButton == ButtonState.Pressed)
                 _mouseLeftDown = true;
@@ -42,13 +42,15 @@ namespace Diner_Smash
                 right = true;
             }
             var kState = Keyboard.GetState();
-            if (!kState.GetPressedKeys().Where(x => x != Keys.LeftShift && x != Keys.RightShift).Any() && pressedKeys.Any())
-                finalizekeys = pressedKeys;
-            pressedKeys = kState.GetPressedKeys().Where(x => x != Keys.LeftShift && x != Keys.RightShift).ToArray();
+            var nowPressed = kState.GetPressedKeys();
+            foreach (var key in pressedKeys)
+                if (!nowPressed.Contains(key))
+                    finalizekeys.Add(key);
+            pressedKeys = nowPressed.ToArray();
             if (left || right || finalizekeys.Any())
                 UserInput?.Invoke(new InputEventArgs()
                 {
-                    PressedKeys = finalizekeys,
+                    PressedKeys = finalizekeys.ToArray(),
                     MouseLeftClick = left,
                     MouseRightClick = right
                 });

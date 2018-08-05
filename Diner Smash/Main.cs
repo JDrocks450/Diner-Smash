@@ -68,7 +68,6 @@ namespace Diner_Smash
         /// </summary>
         protected override void Initialize()
         {
-            // TODO: Add your initialization logic here
             GlobalInput = new InputHelper();
             GlobalInput.UserInput += UserInputted;
             BaseTexture = new Texture2D(GraphicsDevice, 1, 1);

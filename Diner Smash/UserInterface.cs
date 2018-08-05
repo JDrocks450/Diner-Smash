@@ -492,7 +492,6 @@ namespace Diner_Smash
             bool canHold;
             public override void Update(GameTime gameTime)
             {
-                /// TODO: make textbox input more responsive
                 if (GetAvailablity == ObjectContext.AvailablityStates.Disabled)
                     return;
                 var mouse = Mouse.GetState();
