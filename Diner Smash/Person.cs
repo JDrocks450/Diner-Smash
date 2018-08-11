@@ -52,8 +52,8 @@ namespace Diner_Smash
             switch (PersonType)
             {
                 case PersonNameTable.GaryPizza:
-                    MENUS_Time = 5;
-                    FOOD_EAT_Time = 5;
+                    MENUS_Time = Properties.Gameplay.Default.Gary_MenuTime;
+                    FOOD_EAT_Time = Properties.Gameplay.Default.Gary_EatTime;
                     break;
             }
         }

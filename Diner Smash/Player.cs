@@ -110,9 +110,12 @@ namespace Diner_Smash
                 else if (e.PressedKeys.Contains(Keys.Down))
                     Scale -= .05;
                 _frameChanged = true;
-            }         
+            }
             if (e.MouseLeftClick && !Main.Objects.Where(x => x.IsMouseOver).Any())
-                Tasks.Add(new Task(() => RequestNavigation(Main.MousePosition)));
+            {                
+                var p = Main.MousePosition;
+                Tasks.Add(new Task(() => RequestNavigation(p)));
+            }
         }
 
         public override void Load(ContentManager Content)

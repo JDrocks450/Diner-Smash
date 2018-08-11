@@ -183,19 +183,14 @@ namespace Server_Structure
         {
             if (path == "")
                 path = Path.Combine(Environment.CurrentDirectory, "log.txt");
-            using (var f = File.Open(path, FileMode.Create))
+            using (var s = new StreamWriter(path, false, Encoding.UTF8))
             {
-                var ms = new MemoryStream();
-                var s = new StreamWriter(ms, Encoding.UTF8);
-                s.WriteLine($"Log created at {DateTime.Now} for Diner Smash Server Instance");
+                s.WriteLine($"---LOG CREATED AT: {DateTime.Now}---");
                 s.Write(string.Join(s.NewLine, ConsoleLines.ToArray()));
-                var bytes = new byte[ms.Length];
-                ms.Read(bytes, 0, bytes.Length);
-                f.Write(bytes, 0, bytes.Length);
-                ms.Close();
+                s.Flush();
                 s.Close();
             }
-            WriteLine("Dumped to log.txt");
+            WriteLine("Wrote buffer to log.txt");
         }
         static bool? ISCONSOLE = null;
         public static byte[] SERVER_LevelFile
@@ -244,7 +239,7 @@ namespace Server_Structure
             Operator = OperatorIPAddress;            
             WriteLine("Waiting for Connections...");
             ServerSocket = listener.Server;
-            listener.Server.NoDelay = true;
+            listener.Server.NoDelay = true;            
             listener.BeginAcceptTcpClient(OnClientAccepted, listener);
             loopback:
             if (RunTextCommand(Console.ReadLine()))
@@ -321,7 +316,7 @@ namespace Server_Structure
                         return true;
                 }
             }
-            catch
+            catch (InvalidOperationException e)
             {
                 WriteLine("The command entered was not recognized.");
                 return true;

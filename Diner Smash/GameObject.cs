@@ -107,6 +107,16 @@ namespace Diner_Smash
             get => new Vector2(X, Y);
         }
 
+        public Point Size
+        {
+            set
+            {
+                Width = value.X;
+                Height = value.Y;
+            }
+            get => new Point(Width, Height);
+        }
+
         /// <summary>
         /// Used for basic collision detection.
         /// </summary>
