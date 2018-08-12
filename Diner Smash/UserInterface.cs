@@ -581,18 +581,20 @@ namespace Diner_Smash
                 if (!canHold)
                 {
                     _timeSinceLastHold += gameTime.ElapsedGameTime;
-                    if (_timeSinceLastHold.TotalSeconds > .05f)
+                    if (_timeSinceLastHold.TotalSeconds > .07f)
                     {
                         canHold = true;
                         _timeSinceLastHold = TimeSpan.Zero;
                     }
                 }
                 _timeSinceBlinkChange += gameTime.ElapsedGameTime;
-                if (_timeSinceBlinkChange.TotalSeconds > BLINK_INTERVAL)
+                if (_timeSinceBlinkChange.TotalSeconds > BLINK_INTERVAL && IsActive)
                 {
                     CursorVisible = !CursorVisible;
                     _timeSinceBlinkChange = TimeSpan.Zero;
                 }
+                else if (!IsActive)
+                    CursorVisible = IsActive;
                 base.Update(gameTime);
             }
 

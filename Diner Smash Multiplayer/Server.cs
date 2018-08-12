@@ -43,14 +43,14 @@ namespace Server_Structure
             return ((IPEndPoint)Client.Client.RemoteEndPoint).Address;
         }
         public bool Operator;
-
+        bool _disposed;
         /// <summary>
         /// Acts as a flag that shows whether or not this context is usable.
         /// </summary>
         public bool Disposed
         {
-            get;
-            private set;
+            get => _disposed || !Client.Connected;
+            private set => _disposed = value;
         }
 
         public void Dispose()
@@ -163,6 +163,8 @@ namespace Server_Structure
     }
 
     public class Server {
+        public static IPAddress HostingAddress { get => Client.GetlocalIP(); }
+        public const int Port = 37563;
         public const string ServerExecutableName = "Diner Server.exe";
         public static string GetFileName
         {
@@ -224,7 +226,7 @@ namespace Server_Structure
                 Console.Clear();
             ISCONSOLE = IsConsole;
             Connections.CollectionChanged += OnClientAmountChanged;
-            TcpListener listener = new TcpListener(new IPEndPoint(IPAddress.Any, 37563));
+            TcpListener listener = new TcpListener(new IPEndPoint(IPAddress.Any, Port));
             try
             {
                 listener.Start();
@@ -237,7 +239,7 @@ namespace Server_Structure
 #endif
             }
             Operator = OperatorIPAddress;            
-            WriteLine("Waiting for Connections...");
+            WriteLine("Waiting...");
             ServerSocket = listener.Server;
             listener.Server.NoDelay = true;            
             listener.BeginAcceptTcpClient(OnClientAccepted, listener);
@@ -265,37 +267,70 @@ namespace Server_Structure
                 WriteLine(Connections.Last().IP + $": Connected, Is Operator: {Connections.Last().Operator}");
             else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
                 WriteLine((e.OldItems[0] as ClientContext).IP + ": Disconnected");
-            Console.Title = "Diner Smash Server: " + Connections.Count + " Connections";
+            Console.Title = $"Diner Smash | HOSTING: {HostingAddress} ::: PORT: {Port} | {Connections.Count} Connections";
         }
 
         static bool FLAG_WAITKICK;
         /// <summary>
         /// Runs a command
         /// </summary>
-        /// <param name="command"></param>
+        /// <param name="command">The command to run</param>
+        /// <param name="PreParameters">leave these blank they are situational</param>
         /// <returns>if false, the loopback is ignored closing the server.</returns>
-        static bool RunTextCommand(string command)
-        {
+        static bool RunTextCommand(string command, params string[] PreParameters)
+        { 
+            asCommand:
             if (FLAG_WAITKICK)
             {
                 FLAG_WAITKICK = false;
-                int.TryParse(command, out int i);
+                if (command != "kick")
+                    goto asCommand;
+                var id = "-1";
+                if (PreParameters.Length > 0)
+                    id = PreParameters[0];
+                int.TryParse(PreParameters.First(), out int i);
                 if (Connections.Where(x => x.ID == i).Any())
                 {
-                    CloseConnection(Connections.Where(x => x.ID == i).First(), "<no reason>");
+                    var r = "<no reason given>";
+                    if (PreParameters.Length == 2)
+                        r = PreParameters[1];
+                    CloseConnection(Connections.Where(x => x.ID == i).First(), r, 1);
                     return true;
                 }
+                else
+                    WriteLine("No clients have that ID... Nobody was kicked");
                 return true;
             }
             if (FLAG_WAITSAY)
             {
                 FLAG_WAITSAY = false;
-                BroadcastMessage("SERVER", command, BroadcastAudience.All);
+                if (command != "say")
+                    goto asCommand;
+                BroadcastASCIIMessage("SERVER", PreParameters.First(), BroadcastAudience.All);
                 return true;
             }
             try
             {
-                switch (command.TrimStart('/'))
+                var currentParam = "";
+                var parameters = new List<string>();
+                if (command.Contains(' '))
+                {
+                    foreach (var c in command.Substring(command.IndexOf(' ') + 1))
+                    {
+                        if (c == ';')
+                        {
+                            parameters.Add(currentParam);
+                            currentParam = "";
+                            continue;
+                        }
+                        currentParam += c;
+                    }
+                    if (currentParam.Length > 0)
+                        parameters.Add(currentParam);
+                    command = command.Remove(command.IndexOf(' '));
+                }
+                command = command.TrimStart('/');
+                switch (command)
                 {
                     case "dump":
                         DUMP();
@@ -304,15 +339,21 @@ namespace Server_Structure
                         FLAG_Quit = true;
                         return false;
                     case "kick":
-                        WriteLine("Kick who? Waiting for context ID...");
                         FLAG_WAITKICK = true;
+                        if (parameters.Any())
+                            RunTextCommand(command, parameters.ToArray());
+                        else
+                            WriteLine("Kick who? Waiting for context ID...");                        
                         return true;
                     case "ready":
                         BroadcastGameStart();
                         return true;
                     case "say":
-                        WriteLine("Broadcast what? Waiting for ASCII message...");
                         FLAG_WAITSAY = true;
+                        if (parameters.Any())
+                            RunTextCommand(command, parameters.ToArray());
+                        else
+                            WriteLine("Broadcast what? Waiting for ASCII message...");
                         return true;
                 }
             }
@@ -327,8 +368,7 @@ namespace Server_Structure
         private static void BroadcastGameStart()
         {
             var packet = DSPacket.Format(9, new byte[0]);
-            foreach (var c in Connections)
-                SendPacketToClient(c, packet);
+            BroadcastPacket(packet);
         }
 
         #region DataPersistance
@@ -377,14 +417,14 @@ namespace Server_Structure
                     switch (Packet.ServerCommand)
                     {
                         case 1: //Kicks client
-                            CloseConnection(context, "<no reason>");
+                            CloseConnection(context, "<no reason>", 1);
                             break;
                         case 2: //Sends a text message to server
                             message = ASCIIEncoding.ASCII.GetString(Packet.data);
                             WriteLine("Client: " + context.ID + " whispered: " + message);
                             break;
                         case 3: //Sends a text message to all clients
-                            BroadcastMessage(context.Gamertag, Encoding.ASCII.GetString(Packet.data), BroadcastAudience.All);
+                            BroadcastASCIIMessage(context.Gamertag, Encoding.ASCII.GetString(Packet.data), BroadcastAudience.All);
                             break;
                         case 4: //Updates the server level and forces clients to switch levels
                             WriteLine("Client has requested to update server level. Size: " + Packet.data.Length);
@@ -411,16 +451,13 @@ namespace Server_Structure
                 BasePacket = LAST_DITCH_PACKET;
                 _waitingForCompletePacket = true;
             }
-            catch (InvalidOperationException) //Most likely force close
+            catch (InvalidOperationException e) //Most likely force close
             {
-                CloseConnection(context, "error");
+                CloseConnection(context, "They closed the game", 0);
             }
             catch (Exception e)
             {
-                WriteLine(e.Message);                
-#if DEBUG
-                throw e;
-#endif
+                WriteLine(e.Message);
             }
         }
 
@@ -430,13 +467,13 @@ namespace Server_Structure
         /// <param name="Joined"></param>
         static void RunWhenPlayerJoins(ClientContext Joined)
         {
-            foreach(var c in Connections.Where(x => x != Joined))
-            {
-                CreatePlayer(c, Joined.ID);
-            }
             Joined.Operator = VerifyIPasOperator(Joined);
             Connections.Add(Joined);
             SyncContextID(Joined, (byte)(Connections.Count));
+            foreach(var c in Connections.Where(x => x != Joined))
+            {
+                CreatePlayer(c, Joined.ID);
+            }            
             SendLevel(Joined);
             BroadcastCreateAllPlayers(Joined);
         }
@@ -463,10 +500,7 @@ namespace Server_Structure
         private static void PlayerNavigated(ClientContext context, byte[] data)
         {
             var b = DSPacket.Format(5, data);
-            foreach(var i in Connections)
-            {               
-                SendPacketToClient(i, b);
-            }
+            BroadcastPacket(b);
             var x = BitConverter.ToInt32(data, 4);
             var y = BitConverter.ToInt32(data, 8);
             WriteLine($"Navigation Accepted X:{x}, Y:{y}");
@@ -475,10 +509,7 @@ namespace Server_Structure
         private static void PlayerInteracted(ClientContext context, byte[] data)
         {
             var b = DSPacket.Format(7, data);
-            foreach (var i in Connections)
-            {
-                SendPacketToClient(i, b);
-            }
+            BroadcastPacket(b);
             var x = BitConverter.ToInt32(data, 0);
             var y = BitConverter.ToInt32(data, 4);
             WriteLine($"Player: {x}, Interacts with Object: {y}");
@@ -487,10 +518,7 @@ namespace Server_Structure
         private static void PersonSeated(ClientContext context, byte[] data)
         {
             var b = DSPacket.Format(8, data);
-            foreach (var i in Connections)
-            {
-                SendPacketToClient(i, b);
-            }
+            BroadcastPacket(b, BroadcastAudience.All);
             var SenderID = BitConverter.ToInt32(data, 0);
             var pID = BitConverter.ToInt32(data, 4);
             var table = BitConverter.ToInt32(data, 8);
@@ -505,7 +533,7 @@ namespace Server_Structure
         {
             if (!context.Operator)
             {
-                WriteLine("Client: " + context.ID + " is not an operator and cannot change the server level.");
+                WriteLine("Client: " + context.ID + " is not an operator and therefore cannot change the server level.");
                 return false;
             }
             SERVER_LevelFile = buffer;
@@ -528,7 +556,7 @@ namespace Server_Structure
         {
             if (SERVER_LevelFile == null)
             {
-                WriteLine("[SendLevel] Level is not present and therefore command was aborted.");
+                WriteLine("A LevelSave is not present and therefore the SendLevel command was aborted.");
                 return;
             }
             WriteLine($"Sending level data to context: {context.ID}");
@@ -551,42 +579,40 @@ namespace Server_Structure
         /// Closes the connection with the specified client context.
         /// </summary>
         /// <param name="context"></param>
-        static void CloseConnection(ClientContext context, string reason, int mode = 0)
+        /// <param name="mode">1: Client was removed; 0: Client disconnected</param>
+        static void CloseConnection(ClientContext context, string reason, int mode)
         {
             try
             {
-                if (mode == 0)
-                    SendPacketToClient(context, DSPacket.Format(1, Encoding.ASCII.GetBytes(reason)));
-                else if (mode == 1)
-                    SendPacketToClient(context, DSPacket.Format(0, new byte[0]));
+                var r = Encoding.ASCII.GetBytes($"{context.ID}|{reason}");
+                BroadcastPacket(DSPacket.Format((byte)mode, r), BroadcastAudience.All);
+                context.Dispose();
             }
-            catch { }
-            context.Dispose();
-            WriteLine("Client: " + context.ID + " was disconnected because: " + reason);   
-            if (mode != 1)
-                Connections.Remove(context);            
+            catch { }            
+            WriteLine($"Client: {context.ID} {(mode == 1 ? "was kicked" : "disconnected")} because: " + reason);
+            Connections.Remove(context);
         }
 
         static void OnClientRead(IAsyncResult ar)
         {
             ClientContext context = ar.AsyncState as ClientContext;
-            if (context == null)
-                return;
-
             try
             {
+                if (context == null)
+                    return;
                 int read = context.Stream.EndRead(ar);
                 if (read == 0)
                     return;
-                context.Message.Write(context.Buffer, 0, read);                
+                context.Message.Write(context.Buffer, 0, read);
                 OnMessageReceived(context, read);
             }
-            catch (System.Exception e)
+            catch (ObjectDisposedException e)
             {
-                WriteLine(e.Message);
-#if DEBUG
-                //throw e;
-#endif
+                CloseConnection(context, e.Message, 0);
+            }
+            catch (IOException e)
+            {
+                CloseConnection(context, e.Message, 0);
             }
             finally
             {
@@ -599,14 +625,16 @@ namespace Server_Structure
         {
             try
             {
+                if (context.Disposed)
+                    return;
                 context.Stream = context.Client.GetStream();
                 context.Buffer = new byte[context.Client.ReceiveBufferSize];
                 context.Message = new MemoryStream();
                 context.Stream.BeginRead(context.Buffer, 0, context.Buffer.Length, OnClientRead, context);
             }
-            catch (InvalidOperationException e)
+            catch (InvalidOperationException e) //Force Close
             {
-                CloseConnection(context, "error");
+                CloseConnection(context, e.Message, 0);
             }
         }
 
@@ -615,7 +643,7 @@ namespace Server_Structure
             All,
         }
 
-        static void BroadcastMessage(string sender, string message, BroadcastAudience audience)
+        static void BroadcastASCIIMessage(string sender, string message, BroadcastAudience audience = BroadcastAudience.All)
         {
             int messageattempts = 0;
             if (audience == BroadcastAudience.All)
@@ -625,6 +653,12 @@ namespace Server_Structure
                     messageattempts++;
                 }
             WriteLine($"[Messenger] {sender}: {message}");
+        }
+
+        static void BroadcastPacket(byte[] FormattedPacket, BroadcastAudience audience = BroadcastAudience.All)
+        {
+            foreach (var c in Connections)
+                SendPacketToClient(c, FormattedPacket);
         }
 
         static void SendPacketToClient(ClientContext context, byte[] FormattedPacket)

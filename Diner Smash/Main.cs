@@ -144,7 +144,7 @@ namespace Diner_Smash
             foreach (var obj in Main.Objects)
                 obj.Load(Manager);
             if (!Multiplayer.Ready)
-                Multiplayer.PromptUser();
+                Multiplayer.PromptHostJoin();
             _loaded = true;
         }
 

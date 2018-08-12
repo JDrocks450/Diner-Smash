@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Input;
 using Server_Structure;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -17,6 +18,10 @@ namespace Diner_Smash
 {
     public class MultiplayerHandler
     {        
+        public int ID
+        {
+            get => MultiplayerClient.context.ID;
+        }
         public Client MultiplayerClient;
         public MultiplayerHandler(int mode = 0)
         {
@@ -40,10 +45,10 @@ namespace Diner_Smash
         /// 2 = join LAN hosted game
         /// </summary>
         public int MultiplayerMode { get; set; }
-        public List<string> ChatMessages = new List<string>();
+        public ObservableCollection<string> ChatMessages = new ObservableCollection<string>();
 
         #region MultiplayerPrompts
-        public async void PromptUser()
+        public async void PromptHostJoin()
         {
             var hostJoinPrompt = new StackPanel(Color.DarkOrange * .75f, false);
             hostJoinPrompt.SetCenterScreen();
@@ -60,15 +65,15 @@ namespace Diner_Smash
             (hostJoinPrompt.Components[1] as Button).OnClick += (Button sender) =>
             {
                 MultiplayerMode = 0;
-                InitializeMultiplayer(Main.SourceLevel);
                 hostJoinPrompt.CloseDialog();
+                InitializeMultiplayer(Main.SourceLevel);               
             };
             (hostJoinPrompt.Components[2] as Button).OnClick += (Button sender) =>
             {
                 MultiplayerMode = 1;
                 Main.Objects.Clear();
-                InitializeMultiplayer();
                 hostJoinPrompt.CloseDialog();
+                InitializeMultiplayer();                
             };
             (hostJoinPrompt.Components[4] as Button).OnClick += (Button sender) =>
             {
@@ -200,6 +205,7 @@ namespace Diner_Smash
             }
             MultiplayerClient = new Client();
             #region Subscribe to events
+            ChatMessages.CollectionChanged += (object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => PromptForTextMessage(false);
             MultiplayerClient.OnLevelChanged += MultiplayerClient_OnLevelChanged;
             MultiplayerClient.RemovedFromMatch += MultiplayerClient_RemovedFromMatch;
             MultiplayerClient.HostStartedGame += MultiplayerClient_HostStartedGame;
@@ -208,7 +214,7 @@ namespace Diner_Smash
             MultiplayerClient.OnNavigation += MultiplayerClient_OnNavigation;
             MultiplayerClient.OnInteraction += MultiplayerClient_OnInteraction;
             MultiplayerClient.OnPersonSeated += MultiplayerClient_OnPersonSeated;
-            MultiplayerClient.OnMessageReceived += MultiplayerClient_OnMessageReceived;
+            MultiplayerClient.OnMessageReceived += (string sender, string message) => ChatMessages.Add($"{sender}: {message}");
             #endregion
             MultiplayerClient.StartGameClient(JoinIP);
             if (MultiplayerMode == 0 && Level.Source != null)
@@ -228,21 +234,20 @@ namespace Diner_Smash
             Process.Start(p);
         }
 
-        private void MultiplayerClient_OnMessageReceived(string sender, string message)
+        private void MultiplayerClient_DisconnectedFromGame(int ID, string message)
         {
-            ChatMessages.Add($"{sender}: {message}");
-            PromptForTextMessage(false);
-        }
-
-        private void MultiplayerClient_DisconnectedFromGame(string message)
-        {
-            MultiplayerClient.DisconnectedFromGame -= MultiplayerClient_DisconnectedFromGame;
-            System.Windows.Forms.MessageBox.Show(message, "Disconnected");
-            Ready = false;
-            Main.UpdateLevel(null);
+            if (ID == this.ID)
+            {
+                MultiplayerClient.DisconnectedFromGame -= MultiplayerClient_DisconnectedFromGame;
+                System.Windows.Forms.MessageBox.Show(message, "Disconnected");
+                Ready = false;
+                Main.UpdateLevel(null);
+            }
+            else
+                ChatMessages.Add($"Player: {ID} has disconnected");
         }        
 
-        private void MultiplayerClient_HostStartedGame(string message)
+        private void MultiplayerClient_HostStartedGame(int ID, string message)
         {
             Main.FLAG_NetPlayGameStarted = true;
             Main.UILayer.ShowNotification("The Host has Started The Game!", Color.Green * .5f, Color.White, TimeSpan.FromSeconds(5));
@@ -269,20 +274,31 @@ namespace Diner_Smash
                 WalkToPoint(new Point(DestinationX, DestinationY))).Start();
         }
 
+        /// <summary>
+        /// Player connected
+        /// </summary>
+        /// <param name="ID"></param>
         private void MultiplayerClient_OnPlayerCreated(int ID)
         {
+            ChatMessages.Add($"{(ID == this.ID ? "You have" : $"Player: {ID} has")} joined the game.");
             var p = new Player("multiplayerCharacter", ID);
             p.Load(Main.Manager);
             Main.Objects.Add(p);
             if (ID == MultiplayerClient.context.ID)
                 Main.Player = p;
+
         }
 
-        private void MultiplayerClient_RemovedFromMatch(string message)
+        private void MultiplayerClient_RemovedFromMatch(int ID, string message)
         {
-            System.Windows.Forms.MessageBox.Show("You have been removed from the game");
-            Ready = false;
-            Main.UpdateLevel(null);
+            if (ID == MultiplayerClient.context.ID)
+            {
+                System.Windows.Forms.MessageBox.Show("The host kicked you because: " + message, "Kicked");
+                Ready = false;
+                Main.UpdateLevel(null);
+            }
+            else
+                ChatMessages.Add($"Player: {ID} was removed from the game because: {message}");
         }
 
         private void MultiplayerClient_OnLevelChanged(byte[] NewData)
