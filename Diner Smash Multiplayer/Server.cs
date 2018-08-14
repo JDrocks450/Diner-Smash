@@ -267,7 +267,7 @@ namespace Server_Structure
                 WriteLine(Connections.Last().IP + $": Connected, Is Operator: {Connections.Last().Operator}");
             else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
                 WriteLine((e.OldItems[0] as ClientContext).IP + ": Disconnected");
-            Console.Title = $"Diner Smash | HOSTING: {HostingAddress} ::: PORT: {Port} | {Connections.Count} Connections";
+            Console.Title = $"Diner Smash | HOSTING: {HostingAddress} / PORT: {Port} | {Connections.Count} Connections";
         }
 
         static bool FLAG_WAITKICK;
@@ -354,6 +354,9 @@ namespace Server_Structure
                             RunTextCommand(command, parameters.ToArray());
                         else
                             WriteLine("Broadcast what? Waiting for ASCII message...");
+                        return true;
+                    case "info":
+
                         return true;
                 }
             }
@@ -542,10 +545,10 @@ namespace Server_Structure
 
         static void SyncContextID(ClientContext context, byte newID)
         {
-            int old_id = context.ID;
+            var old_id = context.IP;
             SendPacketToClient(context, DSPacket.Format(3, new byte[1] { newID }));
             context.ID = newID;
-            WriteLine("Client: " + old_id + " is now: " + context.ID);
+            WriteLine(old_id + " has ID: " + context.ID);
         }
 
         /// <summary>

@@ -32,7 +32,7 @@ namespace Diner_Smash
         public ObjectSpawnList Spawner;
         public FrameCounter frameCounter = new FrameCounter();
         public static Playground GameScene;
-        public static MultiplayerHandler Multiplayer;
+        public static DSNetPlay Multiplayer;
         public static List<GameObject> Objects = new List<GameObject>();
         static Queue<GameObject> _waitingObjects = new Queue<GameObject>();
         public static Player Player;
@@ -120,7 +120,7 @@ namespace Diner_Smash
         {
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);            
-            Multiplayer = new MultiplayerHandler();
+            Multiplayer = new DSNetPlay();
             UILayer = new UserInterface(Content, new Point(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height));
             UpdateLevel(null);                      
         }
@@ -234,7 +234,7 @@ namespace Diner_Smash
 
         UserInterface.StackPanel DEBUGInformationStackPanel = new UserInterface.StackPanel();
         public void DisplayDEBUGInfo(GameTime gameTime)
-        {
+        {            
             if (DEBUGInformationStackPanel.Components.Count == 0)
             {
                 DEBUGInformationStackPanel.CreateImage(BaseTexture, Color.Black * .75f, new Rectangle(10, 10, 0, 0));

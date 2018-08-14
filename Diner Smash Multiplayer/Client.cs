@@ -15,11 +15,19 @@ namespace Server_Structure
     {
         public static IPAddress GetlocalIP()
         {
-            using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
+            try
             {
-                socket.Connect("8.8.8.8", 65530);
-                IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
-                return endPoint.Address;
+                using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
+                {
+                    socket.Connect("8.8.8.8", 65530);
+                    IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
+                    return endPoint.Address;
+                }
+            }
+            catch (SocketException e)
+            {
+                Server.WriteLine("You are not connected to the Internet.");
+                return IPAddress.Loopback;
             }
         }
         public ClientContext context = new ClientContext();

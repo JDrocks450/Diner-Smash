@@ -50,7 +50,7 @@
     <Compile Include="InputHelper.cs" />
     <Compile Include="LevelSave.cs" />
     <Compile Include="Main.cs" />
-    <Compile Include="MultiplayerHandler.cs" />
+    <Compile Include="DSNetPlay.cs" />
     <Compile Include="OptionsMenu.cs" />
     <Compile Include="PathHelper.cs" />
     <Compile Include="Person.cs" />

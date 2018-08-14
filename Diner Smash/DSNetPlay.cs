@@ -16,14 +16,14 @@ using static Diner_Smash.UserInterface;
 
 namespace Diner_Smash
 {
-    public class MultiplayerHandler
+    public class DSNetPlay
     {        
         public int ID
         {
             get => MultiplayerClient.context.ID;
         }
         public Client MultiplayerClient;
-        public MultiplayerHandler(int mode = 0)
+        public DSNetPlay(int mode = 0)
         {
             MultiplayerMode = mode;
             Main.GlobalInput.UserInput += GlobalInput_UserInput;

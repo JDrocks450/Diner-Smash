@@ -415,7 +415,6 @@ namespace Diner_Smash
             {
                 var enumval = (ObjectContext.ObjectNameTable)sender.Tag;
                 var value = GameObject.Create("object", enumval, Content);
-                value.Load(Content);
                 value.Location = Main.GameCamera.DesiredPosition + (Main.UILayer.Size / new Point(2)).ToVector2() - (value.Size / new Point(2)).ToVector2();
                 Main.AddObject(value);
             }

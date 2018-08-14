@@ -47,7 +47,7 @@ namespace Diner_Smash
             internal set;
         } = false;
 
-        public enum ObjectNameTable { None, Table, Food, WaitHere, WelcomeMat, Player, Person, Menu, POS };        
+        public enum ObjectNameTable { None, Table, Food, WaitHere, WelcomeMat, Player, Person, Menu, POS, CardboardBoxDesk };        
         public ObjectNameTable Identity;
 
         public bool IsRoutable = true;
@@ -322,6 +322,9 @@ namespace Diner_Smash
             var obj = new GameObject("");
             switch (Type)
             {
+                case ObjectNameTable.CardboardBoxDesk:
+                    obj = new Desk(Name);
+                    break;
                 case ObjectNameTable.WelcomeMat:
                     obj = new WelcomeMat(Name);
                     break;
