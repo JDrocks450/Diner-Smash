@@ -43,8 +43,8 @@ namespace Diner_Smash
             }
             var kState = Keyboard.GetState();
             var nowPressed = kState.GetPressedKeys();
-            foreach (var key in pressedKeys)
-                if (!nowPressed.Contains(key))
+            foreach (var key in nowPressed)
+                if (!pressedKeys.Contains(key))
                     finalizekeys.Add(key);
             pressedKeys = nowPressed.ToArray();
             if (left || right || finalizekeys.Any())

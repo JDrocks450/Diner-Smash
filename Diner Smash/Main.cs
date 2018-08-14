@@ -19,7 +19,7 @@ namespace Diner_Smash
         SpriteBatch spriteBatch;
 
         public static LevelSave SourceLevel;
-        public static bool PlacementMode = true;
+        public static bool PlacementMode = false;
         public static bool IsDebugMode = false;
         public static Texture2D BaseTexture;
         public static UserInterface UILayer;
@@ -32,7 +32,7 @@ namespace Diner_Smash
         public ObjectSpawnList Spawner;
         public FrameCounter frameCounter = new FrameCounter();
         public static Playground GameScene;
-        public static MultiplayerHandler Multiplayer;
+        public static DSNetPlay Multiplayer;
         public static List<GameObject> Objects = new List<GameObject>();
         static Queue<GameObject> _waitingObjects = new Queue<GameObject>();
         public static Player Player;
@@ -42,22 +42,58 @@ namespace Diner_Smash
         public bool IsConnected { get { try { return Multiplayer.MultiplayerClient.context.Client.Connected; } catch { return false; } } }
         public static bool IsHost { get => Multiplayer.MultiplayerMode == 0; }
         public static bool FLAG_NetPlayGameStarted = false;
-
+        /// <summary>
+        /// Requests that the game begin exiting in a safe way.
+        /// </summary>
+        public static bool SafeExit;
         public static ContentManager Manager;
 
         public Main()
         {
-            graphics = new GraphicsDeviceManager(this);
-            graphics.PreferredBackBufferWidth = 1024;
-            graphics.PreferredBackBufferHeight = 768;
+            graphics = new GraphicsDeviceManager(this);            
             IsMouseVisible = true;
-            IsFixedTimeStep = false;
-            //graphics.ToggleFullScreen();
+            IsFixedTimeStep = false;            
+            Window.ClientSizeChanged += ClientSizeChanged;
+            int w, h;
+            w = Properties.DinerSmash.Default.GraphicsWidth;
+            h = Properties.DinerSmash.Default.GraphicsHeight;
+            if (w == -1 || h == -1)
+                graphics.DeviceCreated += (object s, EventArgs e) =>
+                {
+                    Properties.DinerSmash.Default.GraphicsWidth = GraphicsDevice.Adapter.CurrentDisplayMode.Width;
+                    Properties.DinerSmash.Default.GraphicsHeight = GraphicsDevice.Adapter.CurrentDisplayMode.Height;
+                    Properties.DinerSmash.Default.Save();
+                    System.Diagnostics.Process.Start(Environment.CurrentDirectory + "//Diner Smash.exe");
+                    Exit();
+                };
+            else
+            {
+                graphics.PreferredBackBufferWidth = w;
+                graphics.PreferredBackBufferHeight = h;
+            }
+            switch (Properties.DinerSmash.Default.WindowMode)
+            {
+                case 2:
+                    graphics.ToggleFullScreen();
+                    break;
+                case 1:
+                    Window.IsBorderless = true;
+                    break;
+                case 0:
+                    Window.AllowUserResizing = true;
+                    break;
+            }            
             Content.RootDirectory = "Content";
             Manager = Content;
 #if DEBUG
             IsDebugMode = true;
 #endif
+        }
+
+        private void ClientSizeChanged(object sender, EventArgs e)
+        {
+            if (UILayer != null)
+                UILayer.Size = Window.ClientBounds.Size;          
         }
 
         /// <summary>
@@ -84,11 +120,8 @@ namespace Diner_Smash
         {
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);            
-            Multiplayer = new MultiplayerHandler();
+            Multiplayer = new DSNetPlay();
             UILayer = new UserInterface(Content, new Point(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height));
-            Spawner = new ObjectSpawnList(Content, new Point(0));
-            Spawner.Formatter.Margin = new Point(GraphicsDevice.Viewport.Width - Spawner.Formatter.Destination.Width - 10, 10);
-            Spawner.Formatter.Reformat();
             UpdateLevel(null);                      
         }
 
@@ -111,7 +144,7 @@ namespace Diner_Smash
             foreach (var obj in Main.Objects)
                 obj.Load(Manager);
             if (!Multiplayer.Ready)
-                Multiplayer.PromptUser();
+                Multiplayer.PromptHostJoin();
             _loaded = true;
         }
 
@@ -137,8 +170,9 @@ namespace Diner_Smash
         protected override void Update(GameTime gameTime)
         {
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
+                SafeExit = true;
+            if (SafeExit)
                 Exit();
-
             MousePosition = Mouse.GetState().Position + GameCamera.DesiredPosition.ToPoint();
             GameCamera.Update();
             double delta = gameTime.ElapsedGameTime.TotalSeconds;
@@ -178,10 +212,11 @@ namespace Diner_Smash
             }
             if (PlacementMode)
             {
-                if (!UILayer.Components.Contains(Spawner))                
-                    UILayer.Components.Add(Spawner);                                    
-                Spawner.Update(gameTime);                
-            }                      
+                if (Spawner is null)
+                    Spawner = new ObjectSpawnList();
+            }
+            else
+                Spawner = null;
             frameCounter.Update(gameTime);
             DisplayDEBUGInfo(gameTime);           
             base.Update(gameTime);
@@ -199,7 +234,7 @@ namespace Diner_Smash
 
         UserInterface.StackPanel DEBUGInformationStackPanel = new UserInterface.StackPanel();
         public void DisplayDEBUGInfo(GameTime gameTime)
-        {
+        {            
             if (DEBUGInformationStackPanel.Components.Count == 0)
             {
                 DEBUGInformationStackPanel.CreateImage(BaseTexture, Color.Black * .75f, new Rectangle(10, 10, 0, 0));

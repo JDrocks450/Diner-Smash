@@ -10,6 +10,19 @@ using System.Threading.Tasks;
 
 namespace Diner_Smash
 {
+    public class Desk : GameObject
+    {
+        public Desk(string Name) : base(Name, ObjectNameTable.CardboardBoxDesk)
+        {
+
+        }
+
+        public override void Load(ContentManager Content = null)
+        {
+            Texture = Content.Load<Texture2D>("Objects/CTable");
+            base.Load(Content);            
+        }        
+    }
     public class Table : GameObject
     {
         Texture2D Tabletop, Tableseat;

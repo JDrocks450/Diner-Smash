@@ -15,11 +15,19 @@ namespace Server_Structure
     {
         public static IPAddress GetlocalIP()
         {
-            using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
+            try
             {
-                socket.Connect("8.8.8.8", 65530);
-                IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
-                return endPoint.Address;
+                using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
+                {
+                    socket.Connect("8.8.8.8", 65530);
+                    IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
+                    return endPoint.Address;
+                }
+            }
+            catch (SocketException e)
+            {
+                Server.WriteLine("You are not connected to the Internet.");
+                return IPAddress.Loopback;
             }
         }
         public ClientContext context = new ClientContext();
@@ -30,7 +38,7 @@ namespace Server_Structure
         /// Raised when level files are received.
         /// </summary>
         public event OnLevelChangedHandler OnLevelChanged;
-        public delegate void OnClientStateChanged(string message = "NO MESSAGE");
+        public delegate void OnClientStateChanged(int ID, string message = "NO MESSAGE");
         /// <summary>
         /// Raised when the client has been kicked.
         /// </summary>
@@ -79,8 +87,8 @@ namespace Server_Structure
             }
             catch (SocketException e)
             {                
-                Server.WriteLine(e.ToString());
-                DisconnectedFromGame?.Invoke(e.Message);
+                Server.WriteLine(e.Message + Environment.NewLine + "Verify the IP: " + ConnectTo + " and make sure the host has portforwarded port 37563");
+                DisconnectedFromGame?.Invoke(context.ID, e.Message);
             }
             if (context.Client.Connected)
                 Server.WriteLine("Connected to: " + ConnectTo.ToString(), true);
@@ -161,12 +169,22 @@ namespace Server_Structure
                 switch (Packet.ServerCommand)
                 {
                     case 0: //Server shutting down
-                        Server.WriteLine("The server was closed by the host.");
-                        DisconnectedFromGame?.Invoke("The server was shut down by the host.");
+                        {
+                            var r = Encoding.ASCII.GetString(Packet.data);
+                            int.TryParse(r.Substring(0, r.IndexOf('|')), out int id);
+                            r = r.Remove(0, r.IndexOf('|') + 1);
+                            Server.WriteLine($"{id} disconnected from the server because: {r}");
+                            DisconnectedFromGame?.Invoke(id, r);
+                        }
                         break;
-                    case 1: //Kicked
-                        Server.WriteLine("You have been kicked from the server.");
-                        RemovedFromMatch?.Invoke();
+                    case 1: //Someone Kicked   
+                        {
+                            var r = Encoding.ASCII.GetString(Packet.data);
+                            int.TryParse(r.Substring(0, r.IndexOf('|')), out int id);
+                            r = r.Remove(0, r.IndexOf('|') + 1);
+                            Server.WriteLine($"{id} has been kicked from the server because: {r}");
+                            RemovedFromMatch?.Invoke(id, r);
+                        }
                         break;
                     case 2: //Switch Level
                         Server.WriteLine("Server forcing level change. Size: " + Packet.data.Length);
@@ -200,7 +218,7 @@ namespace Server_Structure
                         PersonSeated(Packet.data);
                         break;
                     case 9: //Host start game
-                        HostStartedGame?.Invoke();
+                        HostStartedGame?.Invoke(context.ID);
                         break;
                 }
             PrepareForNextMessage();
@@ -248,7 +266,7 @@ namespace Server_Structure
                 context.Message.Write(context.Buffer, 0, read);
                 ProcessMessage(read);
             }
-            catch (IOException e) { DisconnectedFromGame?.Invoke(e.Message); }
+            catch (IOException e) { DisconnectedFromGame?.Invoke(context.ID, e.Message); }
         }
 
         public void SendPacketToServer(byte[] FormattedPacket)
