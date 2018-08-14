@@ -426,7 +426,7 @@ namespace Diner_Smash
                 return this;
             }
 
-            bool UpperCase = false;
+            bool? UpperCase = false;
             private void GlobalInput_UserInput(InputHelper.InputEventArgs e)
             {
                 if (e.MouseLeftClick)
@@ -436,18 +436,21 @@ namespace Diner_Smash
                     else
                         IsActive = false;
                 }
-                if (IsActive && e.PressedKeys.Any())
+                if (IsActive && e.PressedKeys.Any() && !FLAG_ClearKeyboard)
                 {
                     var old = RenderText.Length;
-                    var changes = "";                    
-                    foreach(var k in e.PressedKeys)
+                    var changes = "";
+                    foreach (var k in e.PressedKeys)
                     {
                         var letter = Enum.GetName(typeof(Keys), k);
                         if (letter.Where(x => char.IsNumber(x)).Any())
                             letter = new string(letter.Where(x => char.IsNumber(x)).ToArray());
                         switch (k)
                         {
-                            case Keys.Back:                                
+                            case Keys.LeftControl:
+                            case Keys.RightControl:                                
+                                continue;
+                            case Keys.Back:
                             case Keys.Delete:
                                 continue;
                             case Keys.RightShift:
@@ -457,7 +460,7 @@ namespace Diner_Smash
                             case Keys.Right:
                                 continue;
                             case Keys.Up:
-                                CursorPosition=RenderText.Length;
+                                CursorPosition = RenderText.Length;
                                 continue;
                             case Keys.Down:
                                 CursorPosition = 0;
@@ -471,11 +474,14 @@ namespace Diner_Smash
                             case Keys.Enter:
                                 Accepted?.Invoke(this);
                                 return;
-                        }                        
-                        if (UpperCase)
-                            letter = letter.ToUpper();
-                        else
-                            letter = letter.ToLower();
+                        }
+                        if (letter.Count() > 1)
+                            continue;
+                        if (UpperCase.HasValue)
+                            if (UpperCase.Value)
+                                letter = letter.ToUpper();
+                            else if (!UpperCase.Value)
+                                letter = letter.ToLower();                        
                         RenderText = RenderText.Insert(CursorPosition, letter);
                         changes += letter;
                     }                    
@@ -486,6 +492,10 @@ namespace Diner_Smash
 
             public bool CursorVisible = true;
             public const float BLINK_INTERVAL = .7f;
+            /// <summary>
+            /// Denies any keyboard presses until no key is pressed.
+            /// </summary>
+            bool FLAG_ClearKeyboard;
 
             TimeSpan _timeSinceLastHold;
             TimeSpan _timeSinceBlinkChange;
@@ -499,12 +509,13 @@ namespace Diner_Smash
                 IsMouseOver = false;
                 if (MouseRect.Intersects(Destination))
                     IsMouseOver = true;
-                if (canHold && IsActive)
-                {
-                    UpperCase = Keyboard.GetState().CapsLock;
-                    foreach (var k in Keyboard.GetState().GetPressedKeys())
+                var keyboard = Keyboard.GetState();
+                if (canHold && IsActive && !FLAG_ClearKeyboard)
+                {                    
+                    UpperCase = keyboard.CapsLock;
+                    foreach (var k in keyboard.GetPressedKeys())
                         switch (k)
-                        {
+                        {                            
                             case Keys.Back:
                                 if (CursorPosition > 0)
                                 {
@@ -531,8 +542,22 @@ namespace Diner_Smash
                         }
                     canHold = false;                    
                 }                
-                if (IsActive)
+                if (IsActive && !FLAG_ClearKeyboard)
                 {
+                    if ((keyboard.IsKeyDown(Keys.V) &&
+                        (keyboard.IsKeyDown(Keys.LeftControl) ||
+                        keyboard.IsKeyDown(Keys.RightControl))) &&
+                        keyboard.GetPressedKeys().Count() == 2) //Check if only Ctrl and V are pressed (Left or Right Ctrl)
+                    {
+                        string str = "";
+                        var t = new System.Threading.Thread(new System.Threading.ThreadStart(() => { str = GetClipboardText(); }));
+                        t.SetApartmentState(System.Threading.ApartmentState.STA);
+                        t.Start();
+                        while (t.IsAlive) { }
+                        RenderText = RenderText.Insert(CursorPosition, str);
+                        CursorPosition = RenderText.Length;
+                        FLAG_ClearKeyboard = true;
+                    }
                     TextLength = RenderText.Length;
                     if (CursorPosition < 0)
                         CursorPosition = 0;
@@ -554,7 +579,17 @@ namespace Diner_Smash
                     CursorVisible = !CursorVisible;
                     _timeSinceBlinkChange = TimeSpan.Zero;
                 }
+                if (FLAG_ClearKeyboard)
+                    FLAG_ClearKeyboard = keyboard.GetPressedKeys().Any();
                 base.Update(gameTime);
+            }
+
+            [STAThread]
+            static string GetClipboardText()
+            {
+                if (System.Windows.Forms.Clipboard.ContainsText())
+                    return System.Windows.Forms.Clipboard.GetText();
+                return "";
             }
 
             public override void Draw(SpriteBatch sprite)
