@@ -41,6 +41,7 @@ namespace Diner_Smash
         public bool GameplayPaused;
         public bool IsConnected { get { try { return Multiplayer.MultiplayerClient.context.Client.Connected; } catch { return false; } } }
         public static bool IsHost { get => Multiplayer.MultiplayerMode == 0; }
+        public static bool DEBUG_HighlightingMode = false;
         public static bool FLAG_NetPlayGameStarted = false;
         /// <summary>
         /// Requests that the game begin exiting in a safe way.
@@ -60,8 +61,10 @@ namespace Diner_Smash
             if (w == -1 || h == -1)
                 graphics.DeviceCreated += (object s, EventArgs e) =>
                 {
-                    Properties.DinerSmash.Default.GraphicsWidth = GraphicsDevice.Adapter.CurrentDisplayMode.Width;
-                    Properties.DinerSmash.Default.GraphicsHeight = GraphicsDevice.Adapter.CurrentDisplayMode.Height;
+                    if (w == -1)
+                        Properties.DinerSmash.Default.GraphicsWidth = GraphicsDevice.Adapter.CurrentDisplayMode.Width;
+                    if (h == -1)
+                        Properties.DinerSmash.Default.GraphicsHeight = GraphicsDevice.Adapter.CurrentDisplayMode.Height;
                     Properties.DinerSmash.Default.Save();
                     System.Diagnostics.Process.Start(Environment.CurrentDirectory + "//Diner Smash.exe");
                     Exit();
@@ -173,7 +176,7 @@ namespace Diner_Smash
                 SafeExit = true;
             if (SafeExit)
                 Exit();
-            MousePosition = Mouse.GetState().Position + GameCamera.DesiredPosition.ToPoint();
+            MousePosition = Mouse.GetState().Position + GameCamera.Camera_Viewport.Location;
             GameCamera.Update();
             double delta = gameTime.ElapsedGameTime.TotalSeconds;
             if (delta == 0)
@@ -207,9 +210,9 @@ namespace Diner_Smash
                         if (FLAG_NetPlayGameStarted)
                             obj.Update(gameTime);
                     }
-                }
-                catch { }
-            }
+                }                
+                catch (Exception e) { }
+        }
             if (PlacementMode)
             {
                 if (Spawner is null)
@@ -217,6 +220,10 @@ namespace Diner_Smash
             }
             else
                 Spawner = null;
+            if (!IsDebugMode && DEBUG_HighlightingMode)
+                DEBUG_HighlightingMode = false;
+            //Performs a check to see which object was clicked factoring in draw-order.
+            GlobalInput.CollisionCheck(Mouse.GetState(), Main.Objects);
             frameCounter.Update(gameTime);
             DisplayDEBUGInfo(gameTime);           
             base.Update(gameTime);
@@ -230,6 +237,8 @@ namespace Diner_Smash
                 PlacementMode = !PlacementMode;
             if (e.PressedKeys.Contains(Keys.F1))
                 IsDebugMode = !IsDebugMode;
+            if (e.PressedKeys.Contains(Keys.F3))
+                DEBUG_HighlightingMode = !DEBUG_HighlightingMode;
         }
 
         UserInterface.StackPanel DEBUGInformationStackPanel = new UserInterface.StackPanel();
@@ -286,7 +295,7 @@ namespace Diner_Smash
                     foreach (var obj in Objects)
                         obj.Draw(spriteBatch);
                 }
-                catch { }
+                catch (Exception e) { throw e; }
                 spriteBatch.End();
             }
             spriteBatch.Begin(SpriteSortMode.Immediate);

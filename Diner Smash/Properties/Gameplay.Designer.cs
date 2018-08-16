@@ -12,7 +12,7 @@ namespace Diner_Smash.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "15.7.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "15.6.0.0")]
     internal sealed partial class Gameplay : global::System.Configuration.ApplicationSettingsBase {
         
         private static Gameplay defaultInstance = ((Gameplay)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Gameplay())));
@@ -37,13 +37,25 @@ namespace Diner_Smash.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("5")]
+        [global::System.Configuration.DefaultSettingValueAttribute("7.5")]
         public float Gary_EatTime {
             get {
                 return ((float)(this["Gary_EatTime"]));
             }
             set {
                 this["Gary_EatTime"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("5")]
+        public float Kitchen_FoodPrepareTime {
+            get {
+                return ((float)(this["Kitchen_FoodPrepareTime"]));
+            }
+            set {
+                this["Kitchen_FoodPrepareTime"] = value;
             }
         }
     }

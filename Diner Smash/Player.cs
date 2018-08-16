@@ -22,6 +22,7 @@ namespace Diner_Smash
         [XmlIgnore]
         public static Point FrameSize;
         public const int MAX_PLATES = 2;
+        public static Color[] PLAYER_COLORS = new Color[] { Color.White, Color.LightPink, Color.PaleGreen, Color.Yellow };
 
         int MAX_FRAME = -1;
         int Frame
@@ -140,6 +141,8 @@ namespace Diner_Smash
 
         public void RequestNavigation(Point Destination)
         {
+            if (Main.PlacementMode)
+                return;
             if (_walking)
                 return;
             _walking = true;
@@ -192,18 +195,10 @@ namespace Diner_Smash
             else if (Frame < 0)
                 Frame = 0;
             ID = -1;
-            switch (OwnerID)
-            {
-                case 2:
-                    Mask = Color.DeepSkyBlue;
-                    break;
-                case 3:
-                    Mask = Color.PaleGreen;
-                    break;
-                case 4:
-                    Mask = Color.LightYellow;
-                    break;
-            }
+            if (OwnerID <= PLAYER_COLORS.Length)
+                Mask = PLAYER_COLORS[OwnerID - 1];
+            else
+                Mask = Color.Green;
             if (Hands[1] == null && Hands[0] != null)
             {
                 if (Hands[0].Identity == ObjectNameTable.Food)

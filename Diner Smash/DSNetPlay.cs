@@ -305,7 +305,7 @@ namespace Diner_Smash
         {
             var l = LevelSave.DeserializeFromServer(NewData);
             Main.UpdateLevel(l);
-        }        
+        }
 
         public void NavigationRequest(Player sender, Point destination)
         {

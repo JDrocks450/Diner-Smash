@@ -36,7 +36,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <IntermediateOutputPath>C:\Users\Jeremy\AppData\Local\Temp\vs18A8.tmp\Debug\</IntermediateOutputPath>
+    <IntermediateOutputPath>C:\Users\xXJDr\AppData\Local\Temp\vs9694.tmp\Debug\</IntermediateOutputPath>
     <LangVersion>7.2</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
@@ -47,7 +47,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <IntermediateOutputPath>C:\Users\Jeremy\AppData\Local\Temp\vs18A8.tmp\Release\</IntermediateOutputPath>
+    <IntermediateOutputPath>C:\Users\xXJDr\AppData\Local\Temp\vs9694.tmp\Release\</IntermediateOutputPath>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject>Server_Structure.Program</StartupObject>

@@ -26,8 +26,8 @@ namespace Diner_Smash
     public class Table : GameObject
     {
         Texture2D Tabletop, Tableseat;
-        static Color[] BonusColors = new Color[4] { Color.Red, Color.DeepSkyBlue, Color.Green, Color.Purple };
-        Color BonusColor = Color.Purple;
+        static Color[] BonusColors = new Color[4] { Color.MediumVioletRed, Color.DeepSkyBlue, Color.Green, Color.DarkRed };
+        Color BonusColor = BonusColors[0];
 
         public int TableID;
 
@@ -293,7 +293,7 @@ namespace Diner_Smash
                 i = 1;
             else if (bottom)
                 i = 2;
-            else if (right && bottom)            
+            if (right && bottom)            
                 i = 3;
             return PositionPerson(person, i);            
         }

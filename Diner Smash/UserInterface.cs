@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using static Diner_Smash.UserInterface;
 
 namespace Diner_Smash
@@ -95,7 +96,7 @@ namespace Diner_Smash
         public bool AutoSizeHeight;
         public object Tag;
 
-        public ObjectContext.AvailablityStates GetAvailablity
+        public virtual ObjectContext.AvailablityStates Availablity
         {
             get;
             internal set;
@@ -220,7 +221,7 @@ namespace Diner_Smash
 
         public virtual void AddToParent(InterfaceParentComponent Parent)
         {
-            GetAvailablity = ObjectContext.AvailablityStates.Enabled;
+            Availablity = ObjectContext.AvailablityStates.Enabled;
             this.Parent = Parent;
             Parent.Components.Add(this);
         }
@@ -231,7 +232,7 @@ namespace Diner_Smash
         /// <param name="remove">If false, the component will prepare to be disabled rather than be removed from parent.</param>
         public virtual void RemoveFromParent(bool remove)
         {
-            GetAvailablity = ObjectContext.AvailablityStates.Disabled;
+            Availablity = ObjectContext.AvailablityStates.Disabled;
             if (remove)
                 Parent.Components.Remove(this);
         }
@@ -252,6 +253,8 @@ namespace Diner_Smash
 
         public virtual void Update(GameTime gameTime)
         {
+            if (Availablity == ObjectContext.AvailablityStates.Disabled)
+                return;
             var newLoc = Margin;
             switch (HLock)
             {                
@@ -284,7 +287,7 @@ namespace Diner_Smash
 
         public virtual void Draw(SpriteBatch sprite)
         {
-            if (GetAvailablity != ObjectContext.AvailablityStates.Invisible)
+            if (Availablity != ObjectContext.AvailablityStates.Invisible)
                 switch (GetRender)
                 {
                     case InterfaceComponent.Render.InterfaceFont:
@@ -299,10 +302,24 @@ namespace Diner_Smash
 
     public class InterfaceParentComponent : InterfaceComponent
     {
-        public List<InterfaceComponent> Components = new List<InterfaceComponent>();
+        public List<InterfaceComponent> Components { get; set; }
         public InterfaceParentComponent()
         {
+            Components = new List<InterfaceComponent>();
+        }
 
+        /// <summary>
+        /// The parent's availablity applies to children as well.
+        /// </summary>
+        public override ObjectContext.AvailablityStates Availablity
+        {
+            get => base.Availablity;
+            internal set
+            {
+                base.Availablity = value;
+                foreach (var i in Components)
+                    i.Availablity = value;
+            }
         }
 
         public override void AutoSize()
@@ -311,6 +328,14 @@ namespace Diner_Smash
                 Width = Components.Select(x => x.Width).Max() + STACKPANEL_Padding.X * 2;
             if (AutoSizeHeight)
                 Height = Components.Select(x => x.Y + x.Height).Max() + STACKPANEL_Padding.Y;
+        }        
+
+        /// <summary>
+        /// Clears out any null child components
+        /// </summary>
+        public void CleanComponents()
+        {
+            Components = Components.FindAll(x => x != null);
         }
 
         public override void RemoveFromParent(bool remove = true)
@@ -319,23 +344,67 @@ namespace Diner_Smash
                 c.RemoveFromParent(false);
             base.RemoveFromParent(remove);
         }
+
+        bool _dialogHolding = false;
+
+        /// <summary>
+        /// Displays the control and it's contents as a thread-blocking dialog.
+        /// </summary>
+        public Task ShowAsDialog()
+        {
+            return Task.Run(() =>
+                {
+                    Exclusive = true;
+                    _dialogHolding = true;
+                    AddToParent(Main.UILayer);
+                    while (_dialogHolding) { }
+                    RemoveFromParent();
+                    Exclusive = false;
+                });
+        }
+
+        /// <summary>
+        /// Closes this component if ShowDialog was called prior.
+        /// </summary>
+        public void CloseDialog()
+        {
+            _dialogHolding = false;
+        }
     }
 
     public class UserInterface : InterfaceParentComponent
     {
-        public class ObjectSpawnList : InterfaceComponent
+        public class ObjectSpawnList : StackPanel
         {
-            public ContentManager Content;
-            public StackPanel Formatter;
-            public bool IsVisible = false;
+            public ContentManager Content { get => Main.Manager; }
 
-            public ObjectSpawnList(ContentManager Content, Point Location)
+            public ObjectSpawnList()
             {
-                this.Content = Content;
-                Formatter = new StackPanel();
-                var objsList = new InterfaceComponent[Enum.GetNames(typeof(GameObject.ObjectNameTable)).Count() + 1];
-                int i = 1;
-                objsList[0] = new InterfaceComponent().CreateText("SPAWN OBJECT", Color.White, new Point(15));
+                int i = 2; //the amount of extra components to add
+                var objsList = new InterfaceComponent[Enum.GetNames(typeof(GameObject.ObjectNameTable)).Count() + i];                
+                objsList[0] = new InterfaceComponent().CreateText("Add Object to Room", Color.White, new Point(15));
+                objsList[1] = new InterfaceComponent().CreateButton("Change Floor Color", 
+                    Main.GameScene.FloorMask * .25f,
+                    Color.White,
+                    Main.GameScene.FloorMask * .5f, 
+                    Main.GameScene.FloorMask * .60f, 
+                    new Rectangle(new Point(10, 10), new Point(175, 50)));
+                (objsList[1] as Button).OnClick += (Button Sender) =>
+                {
+                    using (System.Windows.Forms.ColorDialog d = new System.Windows.Forms.ColorDialog())
+                    {
+                        d.Color = Main.GameScene.FloorMask.ToDrawingColor();
+                        d.AnyColor = true;
+                        d.AllowFullOpen = true;
+                        d.FullOpen = true;
+                        d.SolidColorOnly = false;
+                        if (d.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                            Main.GameScene.FloorMask = d.Color.ToXNAColor();
+                    }
+                    Sender.Background = Main.GameScene.FloorMask * .25f;
+                    Sender.High = Main.GameScene.FloorMask * .5f;
+                    Sender.Click = Main.GameScene.FloorMask * .60f; 
+                };
                 foreach (var s in Enum.GetNames(typeof(GameObject.ObjectNameTable)))
                 {
                     objsList[i] = new InterfaceComponent().CreateButton(s,
@@ -348,37 +417,32 @@ namespace Diner_Smash
                     (objsList[i] as Button).OnClick += ObjectSpawnList_OnClick;
                     i++;
                 }
-                Formatter.AddRange(true, objsList);
-                Formatter.Margin = Location;
+                AddRange(true, objsList);
+                HLock = HorizontalLock.Right;
                 Main.GlobalInput.UserInput += GlobalInput_UserInput;
+                AddToParent(Main.UILayer);
             }
 
             private void GlobalInput_UserInput(InputHelper.InputEventArgs e)
-            {                
-                if (e.PressedKeys.Contains(Keys.F2))
-                    IsVisible = !IsVisible;
-            }
-
-            public override void Update(GameTime gameTime)
             {
-                if (!IsVisible)
-                    return;
-                foreach (var i in Formatter.Components)
-                    i.Update(gameTime);
+                if (Availablity != ObjectContext.AvailablityStates.Disabled)
+                    if (e.PressedKeys.Contains(Keys.F2))
+                        if (Availablity == ObjectContext.AvailablityStates.Enabled)
+                            Availablity = ObjectContext.AvailablityStates.Invisible;
+                        else
+                            Availablity = ObjectContext.AvailablityStates.Enabled;
             }
 
             private void ObjectSpawnList_OnClick(Button sender)
             {
                 var enumval = (ObjectContext.ObjectNameTable)sender.Tag;
                 var value = GameObject.Create("object", enumval, Content);
-                value.Load(Content);
+                try
+                {
+                    value.Location = Main.GameCamera.DesiredPosition - (value.Size / new Point(2)).ToVector2();
+                }
+                catch (NullReferenceException e) { System.Windows.Forms.MessageBox.Show("That Object has not been implemented yet!"); }
                 Main.AddObject(value);
-            }
-
-            public override void Draw(SpriteBatch batch)
-            {
-                if (IsVisible)
-                    Formatter.Draw(batch);
             }
         }
 
@@ -406,7 +470,7 @@ namespace Diner_Smash
             /// </summary>
             public TextBox()
             {
-                GetAvailablity = ObjectContext.AvailablityStates.Disabled;
+                Availablity = ObjectContext.AvailablityStates.Disabled;
                 CreateTextBox("Untitled", Color.Black * .75f, Color.White, Color.Gray * .75f, Color.Gray,
                 new Rectangle(0, 0, 500, 50));
             }
@@ -419,14 +483,14 @@ namespace Diner_Smash
                 High = Highlight;
                 this.Active = Active;
                 Destination = Space;
-                if (GetAvailablity != ObjectContext.AvailablityStates.Enabled)
+                if (Availablity != ObjectContext.AvailablityStates.Enabled)
                     Main.GlobalInput.UserInput += GlobalInput_UserInput;
                 GetRender = Render.Texture2D;
-                GetAvailablity = ObjectContext.AvailablityStates.Enabled;
+                Availablity = ObjectContext.AvailablityStates.Enabled;
                 return this;
             }
 
-            bool? UpperCase = false;
+            bool UpperCase = false;
             private void GlobalInput_UserInput(InputHelper.InputEventArgs e)
             {
                 if (e.MouseLeftClick)
@@ -439,18 +503,15 @@ namespace Diner_Smash
                 if (IsActive && e.PressedKeys.Any() && !FLAG_ClearKeyboard)
                 {
                     var old = RenderText.Length;
-                    var changes = "";
-                    foreach (var k in e.PressedKeys)
+                    var changes = "";                    
+                    foreach(var k in e.PressedKeys)
                     {
                         var letter = Enum.GetName(typeof(Keys), k);
                         if (letter.Where(x => char.IsNumber(x)).Any())
                             letter = new string(letter.Where(x => char.IsNumber(x)).ToArray());
                         switch (k)
                         {
-                            case Keys.LeftControl:
-                            case Keys.RightControl:                                
-                                continue;
-                            case Keys.Back:
+                            case Keys.Back:                                
                             case Keys.Delete:
                                 continue;
                             case Keys.RightShift:
@@ -460,7 +521,7 @@ namespace Diner_Smash
                             case Keys.Right:
                                 continue;
                             case Keys.Up:
-                                CursorPosition = RenderText.Length;
+                                CursorPosition=RenderText.Length;
                                 continue;
                             case Keys.Down:
                                 CursorPosition = 0;
@@ -474,14 +535,11 @@ namespace Diner_Smash
                             case Keys.Enter:
                                 Accepted?.Invoke(this);
                                 return;
-                        }
-                        if (letter.Count() > 1)
-                            continue;
-                        if (UpperCase.HasValue)
-                            if (UpperCase.Value)
-                                letter = letter.ToUpper();
-                            else if (!UpperCase.Value)
-                                letter = letter.ToLower();                        
+                        }                        
+                        if (UpperCase)
+                            letter = letter.ToUpper();
+                        else
+                            letter = letter.ToLower();
                         RenderText = RenderText.Insert(CursorPosition, letter);
                         changes += letter;
                     }                    
@@ -492,9 +550,6 @@ namespace Diner_Smash
 
             public bool CursorVisible = true;
             public const float BLINK_INTERVAL = .7f;
-            /// <summary>
-            /// Denies any keyboard presses until no key is pressed.
-            /// </summary>
             bool FLAG_ClearKeyboard;
 
             TimeSpan _timeSinceLastHold;
@@ -502,7 +557,7 @@ namespace Diner_Smash
             bool canHold;
             public override void Update(GameTime gameTime)
             {
-                if (GetAvailablity == ObjectContext.AvailablityStates.Disabled)
+                if (Availablity == ObjectContext.AvailablityStates.Disabled)
                     return;
                 var mouse = Mouse.GetState();
                 var MouseRect = new Rectangle(mouse.Position, new Point(1, 1));
@@ -511,11 +566,11 @@ namespace Diner_Smash
                     IsMouseOver = true;
                 var keyboard = Keyboard.GetState();
                 if (canHold && IsActive && !FLAG_ClearKeyboard)
-                {                    
+                {
                     UpperCase = keyboard.CapsLock;
                     foreach (var k in keyboard.GetPressedKeys())
                         switch (k)
-                        {                            
+                        {
                             case Keys.Back:
                                 if (CursorPosition > 0)
                                 {
@@ -541,7 +596,7 @@ namespace Diner_Smash
                                 continue;
                         }
                     canHold = false;                    
-                }                
+                }
                 if (IsActive && !FLAG_ClearKeyboard)
                 {
                     if ((keyboard.IsKeyDown(Keys.V) &&
@@ -563,24 +618,24 @@ namespace Diner_Smash
                         CursorPosition = 0;
                     if (CursorPosition > TextLength)
                         CursorPosition = TextLength;
-                }
+                }                
                 if (!canHold)
                 {
                     _timeSinceLastHold += gameTime.ElapsedGameTime;
-                    if (_timeSinceLastHold.TotalSeconds > .05f)
+                    if (_timeSinceLastHold.TotalSeconds > .07f)
                     {
                         canHold = true;
                         _timeSinceLastHold = TimeSpan.Zero;
                     }
                 }
                 _timeSinceBlinkChange += gameTime.ElapsedGameTime;
-                if (_timeSinceBlinkChange.TotalSeconds > BLINK_INTERVAL)
+                if (_timeSinceBlinkChange.TotalSeconds > BLINK_INTERVAL && IsActive)
                 {
                     CursorVisible = !CursorVisible;
                     _timeSinceBlinkChange = TimeSpan.Zero;
                 }
-                if (FLAG_ClearKeyboard)
-                    FLAG_ClearKeyboard = keyboard.GetPressedKeys().Any();
+                else if (!IsActive)
+                    CursorVisible = IsActive;
                 base.Update(gameTime);
             }
 
@@ -639,11 +694,12 @@ namespace Diner_Smash
 
             private void GlobalInput_UserInput(InputHelper.InputEventArgs e)
             {
-                if (e.MouseLeftClick)
-                {
-                    if (IsMouseOver)                   
-                        OnClick?.Invoke(this);
-                }
+                if (Availablity != ObjectContext.AvailablityStates.Disabled)
+                    if (e.MouseLeftClick)
+                    {
+                        if (IsMouseOver)
+                            OnClick?.Invoke(this);
+                    }
             }
 
             public override void RemoveFromParent(bool remove)
@@ -654,7 +710,7 @@ namespace Diner_Smash
 
             public override void Update(GameTime gameTime)
             {
-                if (GetAvailablity == ObjectContext.AvailablityStates.Disabled)
+                if (Availablity == ObjectContext.AvailablityStates.Disabled)
                     return;
                 var mouse = Mouse.GetState();
                 var MouseRect = new Rectangle(mouse.Position, new Point(1, 1));
@@ -666,17 +722,20 @@ namespace Diner_Smash
 
             public override void Draw(SpriteBatch sprite)
             {
-                Color DrawColor = Background;
-                if (IsMouseOver && Mouse.GetState().LeftButton != ButtonState.Pressed) //Hover
-                    DrawColor = High;
-                if (IsMouseOver && Mouse.GetState().LeftButton == ButtonState.Pressed) //Hover
-                    DrawColor = Click;
-                sprite.Draw(Main.BaseTexture, Destination, DrawColor);
-                var textSize = Font.Measure(RenderText);
-                Font.DrawString(sprite, RenderText,
-                    new Vector2(Destination.X + (Destination.Width / 2) - (int)(textSize.X / 2),
-                    Destination.Y + (Destination.Height / 2) - (int)(textSize.Y / 2)), 
-                    Foreground);
+                if (Availablity != ObjectContext.AvailablityStates.Invisible)
+                {
+                    Color DrawColor = Background;
+                    if (IsMouseOver && Mouse.GetState().LeftButton != ButtonState.Pressed) //Hover
+                        DrawColor = High;
+                    if (IsMouseOver && Mouse.GetState().LeftButton == ButtonState.Pressed) //Hover
+                        DrawColor = Click;
+                    sprite.Draw(Main.BaseTexture, Destination, DrawColor);
+                    var textSize = Font.Measure(RenderText);
+                    Font.DrawString(sprite, RenderText,
+                        new Vector2(Destination.X + (Destination.Width / 2) - (int)(textSize.X / 2),
+                        Destination.Y + (Destination.Height / 2) - (int)(textSize.Y / 2)),
+                        Foreground);
+                }
             }
         }
 
@@ -879,7 +938,8 @@ namespace Diner_Smash
                 _timeSinceOpened += gameTime.ElapsedGameTime;
                 if (_timeSinceOpened >= _notifyTimer)
                     HideNotification();
-            }     
+            }
+            CleanComponents();
         }
 
         public new void Draw(SpriteBatch sprite)

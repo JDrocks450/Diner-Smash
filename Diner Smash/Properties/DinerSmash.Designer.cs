@@ -12,7 +12,7 @@ namespace Diner_Smash.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "15.7.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "15.6.0.0")]
     internal sealed partial class DinerSmash : global::System.Configuration.ApplicationSettingsBase {
         
         private static DinerSmash defaultInstance = ((DinerSmash)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new DinerSmash())));
@@ -25,7 +25,7 @@ namespace Diner_Smash.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("1920")]
+        [global::System.Configuration.DefaultSettingValueAttribute("-1")]
         public int GraphicsWidth {
             get {
                 return ((int)(this["GraphicsWidth"]));
@@ -37,7 +37,7 @@ namespace Diner_Smash.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("1080")]
+        [global::System.Configuration.DefaultSettingValueAttribute("-1")]
         public int GraphicsHeight {
             get {
                 return ((int)(this["GraphicsHeight"]));
@@ -49,7 +49,7 @@ namespace Diner_Smash.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
         public int WindowMode {
             get {
                 return ((int)(this["WindowMode"]));

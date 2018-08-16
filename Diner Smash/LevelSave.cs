@@ -14,6 +14,14 @@ namespace Diner_Smash
     [Serializable]
     public class LevelSave
     {
+        public static ObjectContext.ObjectNameTable[] RequiredObjects = new ObjectContext.ObjectNameTable[]
+        {
+            ObjectContext.ObjectNameTable.FoodCounter,
+            ObjectContext.ObjectNameTable.POS,
+            ObjectContext.ObjectNameTable.Table,
+            ObjectContext.ObjectNameTable.WelcomeMat,            
+        };
+
         [NonSerialized]
         public XDocument Source;
         public string WorkingDirectory;
@@ -57,21 +65,51 @@ namespace Diner_Smash
                 return new LevelSave();
             }
             var e = doc.Root;
-            l.LevelSize = new Point().Parse(e.Element("lSize").Value);
-            var objs = new List<GameObject>();
-            int id = 0;
-            foreach (var n in e.Element("Objects").Elements())
+            try
             {
-                objs.Add(new GameObject("").XmlDeserialize(n, Content));
-                objs[id].ID = id;
-                id++;
+                l.LevelSize = new Point().Parse(e.Element("lSize").Value);
+                Main.GameScene.FloorMask = new Color(uint.Parse(e.Element("fColor").Value));
+                var objs = new List<GameObject>();
+                int id = 0;
+                foreach (var n in e.Element("Objects").Elements())
+                {
+                    objs.Add(new GameObject("").XmlDeserialize(n, Content));
+                    objs[id].ID = id;
+                    id++;
+                }
+                l.LoadedObjects = objs;
             }
-            l.LoadedObjects = objs;
+            catch (Exception en)
+            {
+                System.Windows.Forms.MessageBox.Show($"There was an error loading the save file. {Environment.NewLine + en}");
+            }            
             return l;
+        }
+
+        /// <summary>
+        /// Checks if every required object is included in the List of objects.
+        /// </summary>
+        /// <param name="ObjectsToCheck"></param>
+        /// <returns></returns>
+        public static bool VerifyRequiredObjectsMet(List<GameObject> ObjectsToCheck, out int MetObjects)
+        {
+            var objsMet = 0;
+            foreach (var n in RequiredObjects)
+                if(ObjectsToCheck.Select(x => x.Identity).Contains(n)) objsMet++;
+            MetObjects = objsMet;
+            return objsMet == RequiredObjects.Length;
         }
 
         public void Save(string Path = default)
         {
+            if (!VerifyRequiredObjectsMet(Main.Objects, out int objsSat))
+                if (System.Windows.Forms.MessageBox.Show
+                    ($"Your Dining Room only has {objsSat} out of {RequiredObjects.Length} required objects: " +
+                    $"{Environment.NewLine + " + "}" +
+                    $"{string.Join(Environment.NewLine + " + ", RequiredObjects.Select(x => Enum.GetName(typeof(ObjectContext.ObjectNameTable), x)))}",
+                    "Missing Required Objects", System.Windows.Forms.MessageBoxButtons.OKCancel)
+                    == System.Windows.Forms.DialogResult.Cancel)
+                    return;
             if (Path == default)
                 Path = Environment.CurrentDirectory + SAVENAME;
             WorkingDirectory = Path;
@@ -82,6 +120,7 @@ namespace Diner_Smash
             d.Add(e = new XElement("LevelFileRoot"));
             e.Add(new XElement("lSize", LevelSize)); //Level Size
             XElement o;
+            e.Add(new XElement("fColor", Main.GameScene.FloorMask.PackedValue));
             e.Add(o = new XElement("Objects"));
             foreach (var obj in Main.Objects)
             {

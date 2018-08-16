@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework.Input;
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -54,6 +55,51 @@ namespace Diner_Smash
                     MouseLeftClick = left,
                     MouseRightClick = right
                 });
+        }
+
+        public GameObject CollisionCheck(MouseState mouse, List<GameObject> CheckThrough)
+        {
+            try
+            {
+                var results = new List<GameObject>();
+                foreach (var x in CheckThrough)
+                {
+                    x.IsMouseOver = false;
+                    var MouseRect = new Rectangle(Main.MousePosition, new Point(1, 1));
+                    if (Main.GameCamera.Zoom != 1)
+                    {
+                        return null;
+                    }
+                    if (x.BoundingRectangle.Intersects(MouseRect)) //Per-Pixel detection (fast)
+                    {
+                        x._mouseLastCollision = (Main.MousePosition - x.BoundingRectangle.Location);
+                        var scalechange = x.Scale / 1;
+                        var offsetX = (x._mouseLastCollision.X * scalechange);
+                        var offsetY = (x._mouseLastCollision.Y * scalechange);
+                        x._mouseLastCollision.X = (int)offsetX;
+                        x._mouseLastCollision.Y = (int)offsetY;
+                        var data = new Color[1];
+                        x.Texture.GetData(0, new Rectangle(x._mouseLastCollision, new Point(1, 1)), data, 0, 1);
+                        if (data[0] != Color.Transparent)
+                            x.IsMouseOver = true;
+                        if (x.IsMouseOver)
+                            results.Add(x);
+                    }
+                }            
+            if (results.Any())
+            {
+                var result = results.Where(x => x.DrawIndex == results.Select(d => d.DrawIndex).Max()).Last(); //Drawing is currently IMMEDIATE meaning the last object is on-top
+                foreach (var r in results.Where(x => x != result))
+                {
+                    r.IsMouseOver = false;
+                }
+                if (mouse.LeftButton == ButtonState.Pressed)
+                    result.Click();
+                return result;
+            }
+            }
+            catch (Exception) { return null; }
+            return null;
         }
     }
 }

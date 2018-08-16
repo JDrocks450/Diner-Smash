@@ -6,6 +6,9 @@
       <Value Profile="(Default)">5</Value>
     </Setting>
     <Setting Name="Gary_EatTime" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">7.5</Value>
+    </Setting>
+    <Setting Name="Kitchen_FoodPrepareTime" Type="System.Single" Scope="User">
       <Value Profile="(Default)">5</Value>
     </Setting>
   </Settings>

@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,6 +11,29 @@ namespace Diner_Smash
 {
     public static class Extentions
     {
+        public static System.Drawing.Color ToDrawingColor(this Color c)
+        {
+            return System.Drawing.Color.FromArgb(c.A, c.R, c.G, c.B);
+        }
+        public static Color ToXNAColor(this System.Drawing.Color c)
+        {
+            return new Color(c.R, c.G, c.B, c.A);
+        }
+
+        public static void WritePalette(this System.Drawing.Bitmap bmp, string path)
+        {
+            using (System.IO.StreamWriter w = new System.IO.StreamWriter(path, false))
+                foreach (var e in bmp.Palette.Entries)
+                    w.WriteLine($"{(e.IsNamedColor ? e.Name : "???")} > {e.ToArgb()}");            
+        }
+
+        public static System.Drawing.Bitmap GetBitmap(this Texture2D texture)
+        {
+            MemoryStream memoryStream = new MemoryStream();
+            texture.SaveAsPng(memoryStream, texture.Width, texture.Height);
+            return new System.Drawing.Bitmap(memoryStream);
+        }
+
         public static List<ObjectContext> Verify(this List<ObjectContext> entry, ObjectContext CheckAgainst)
         {
             foreach (var i in entry.Where(x => x.Width > CheckAgainst.Width))

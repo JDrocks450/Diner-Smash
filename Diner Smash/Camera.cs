@@ -31,6 +31,11 @@ namespace Diner_Smash
             set { _pos = value; }
         }
 
+        /// <summary>
+        /// The camera's viewport -- NOTE: Rectangles use int values meaning it's not 100% accurate!
+        /// </summary>
+        public Rectangle Camera_Viewport;
+
         int _mouseLastScroll = 0;
 
         /// <summary>
@@ -39,12 +44,14 @@ namespace Diner_Smash
         /// <param name="graphicsDevice"></param>
         /// <returns></returns>
         public Matrix Transform(GraphicsDevice graphicsDevice)
-        {            
+        {
+            var center = new Point(graphicsDevice.Viewport.Width / 2, graphicsDevice.Viewport.Height / 2);
             _transform =       // Thanks to o KB o for this solution
               Matrix.CreateTranslation(new Vector3(-_pos.X, -_pos.Y, 0)) *
                                          Matrix.CreateRotationZ(0) *
                                          Matrix.CreateScale(new Vector3(Zoom, Zoom, 1)) *
-                                         Matrix.CreateTranslation(new Vector3(0,0, 0));
+                                         Matrix.CreateTranslation(new Vector3(center.X, center.Y, 0));
+            Camera_Viewport = new Rectangle((int)(_pos.X - center.X), (int)_pos.Y - center.Y, graphicsDevice.Viewport.Width, graphicsDevice.Viewport.Height);
             return _transform;
         }
 
@@ -73,7 +80,7 @@ namespace Diner_Smash
                 DesiredPosition = resetCamPos;
                 Zoom = 1;
             }
-            _lastMousePos = pos;
+            _lastMousePos = pos;            
         }
 
         public Camera()

@@ -47,7 +47,7 @@ namespace Diner_Smash
             internal set;
         } = false;
 
-        public enum ObjectNameTable { None, Table, Food, WaitHere, WelcomeMat, Player, Person, Menu, POS, CardboardBoxDesk };        
+        public enum ObjectNameTable { None, Table, Food, WaitHere, WelcomeMat, Player, Person, Menu, POS, CardboardBoxDesk, FoodCounter };        
         public ObjectNameTable Identity;
 
         public bool IsRoutable = true;
@@ -185,6 +185,14 @@ namespace Diner_Smash
                     Main.ObjectDragging = null;
                     Main.Objects.Remove(this);
                 }
+                else if (e.PressedKeys.Contains(Keys.F))
+                {
+                    var i = (int)Effects;
+                    i++;
+                    if (i > 2)
+                        i = 0;
+                    Effects = (SpriteEffects)i;
+                }
             if (e.MouseLeftClick && IsMouseOver && !Main.PlacementMode)
                 Interact(Main.Player);
         }
@@ -200,12 +208,16 @@ namespace Diner_Smash
             Main.ObjectDragging = this;
         }
 
+        public void Click()
+        {
+            if (IsMouseOver && IsClickable)
+                OnClick?.Invoke(this);
+        }
+
         public virtual void Update(GameTime gameTime)
         {
             if (Availablity != AvailablityStates.Enabled)
                 return;
-            if (IsClickable)
-                VerifyMouseClick(Mouse.GetState());
             if (IsDragging)
             {                
                 Point change = Mouse.GetState().Position - LastMousePos;
@@ -220,8 +232,9 @@ namespace Diner_Smash
             }
             if (Interacting)
                 DEBUG_Highlight = Color.Orange;
-            else
-                DEBUG_Highlight = Color.Transparent;
+            else if (Main.DEBUG_HighlightingMode)
+                DEBUG_Highlight = Color.Green;
+            else DEBUG_Highlight = Color.Transparent;
         }
 
         /// <summary>
@@ -230,6 +243,10 @@ namespace Diner_Smash
         /// <returns></returns>
         public virtual bool Interact(Player Focus, bool Force = false)
         {
+            if (Focus is null)
+                return false;
+            if (Main.PlacementMode)
+                return false;
             if (!IsInteractable)
                 return false;
             Interacting = true;
@@ -250,39 +267,7 @@ namespace Diner_Smash
             return new string[] { $"*{Identity}", $"Location: {Location}", $"Size: {new Point(Width, Height)}",  $"MouseCollision: {_mouseLastCollision}", $"Mouse Location: {Main.MousePosition}" };
         }
 
-        Point _mouseLastCollision;
-        /// <summary>
-        /// Checks through each context to see if the mouse is clicking it
-        /// </summary>
-        /// <param name="CheckThrough"></param>
-        /// <param name="mouse"></param>
-        /// <returns></returns>
-        public bool VerifyMouseClick(MouseState mouse)
-        {            
-            IsMouseOver = false;
-            var MouseRect = new Rectangle(Main.MousePosition, new Point(1, 1));
-            var results = BoundingRectangle.Intersects(MouseRect);                        
-            if (Main.GameCamera.Zoom != 1)
-            {                
-                return false;
-            }            
-            if (results) //Per-Pixel detection (fast)
-            {
-                _mouseLastCollision = (Main.MousePosition - BoundingRectangle.Location);
-                var scalechange = Scale/1;
-                var offsetX = (_mouseLastCollision.X * scalechange);
-                var offsetY = (_mouseLastCollision.Y * scalechange);
-                _mouseLastCollision.X = (int)offsetX;
-                _mouseLastCollision.Y = (int)offsetY;
-                var data = new Color[1];
-                Texture.GetData(0, new Rectangle(_mouseLastCollision, new Point(1, 1)), data, 0, 1);
-                if (data[0] != Color.Transparent)
-                    IsMouseOver = true;
-                if (IsMouseOver && Mouse.GetState().LeftButton == ButtonState.Pressed)
-                    OnClick?.Invoke(this);
-            }
-            return results;
-        }
+        public Point _mouseLastCollision;        
 
         /// <summary>
         /// Writes vital information to an XML Element
@@ -295,7 +280,8 @@ namespace Diner_Smash
                 e.Add(new XElement("GameObjectIdentity", Enum.GetName(typeof(ObjectNameTable), Identity)));
             e.Add(new XElement("Name", Name),
                 new XElement("X", X),
-                new XElement("Y", Y));
+                new XElement("Y", Y),
+                new XElement("spriteEffect", (int)Effects));
         }
 
         public virtual GameObject XmlDeserialize(XElement ReadFrom, ContentManager Content)
@@ -305,8 +291,9 @@ namespace Diner_Smash
                 throw new Exception("Incorrect Format!");
             var name = e.Element("Name").Value;
             GameObject value = Create(name, (ObjectNameTable)Enum.Parse(typeof(ObjectNameTable), e.Element("GameObjectIdentity").Value), Content);          
-            value.X = int.Parse(e.Element("X").Value);
-            value.Y = int.Parse(e.Element("Y").Value);
+            value.X = float.Parse(e.Element("X").Value);
+            value.Y = float.Parse(e.Element("Y").Value);
+            value.Effects = (SpriteEffects)int.Parse(e.Element("spriteEffect").Value);
             return value;
         }
 
@@ -322,6 +309,9 @@ namespace Diner_Smash
             var obj = new GameObject("");
             switch (Type)
             {
+                case ObjectNameTable.Player:
+                    obj = new Player(Name, (Main.Objects.Where(x => x is Player)?.Count() ?? 0) + 1);
+                    break;
                 case ObjectNameTable.CardboardBoxDesk:
                     obj = new Desk(Name);
                     break;
@@ -329,7 +319,7 @@ namespace Diner_Smash
                     obj = new WelcomeMat(Name);
                     break;
                 case ObjectNameTable.Table:
-                    obj = new Table(Name, Main.Objects.Where(x => x.Identity == ObjectNameTable.Table).Count() + 1);
+                    obj = new Table(Name, Main.Objects.Where(x => x.Identity == ObjectNameTable.Table)?.Count() ?? 0 + 1);
                     break;
                 case ObjectNameTable.Person:
                     var i = Main.GlobalRandom.Next(0, Enum.GetNames(typeof(Person.PersonNameTable)).Length);
@@ -343,6 +333,9 @@ namespace Diner_Smash
                     break;
                 case ObjectNameTable.POS:
                     obj = new POSObject(Name);
+                    break;
+                case ObjectNameTable.FoodCounter:
+                    obj = new FoodCounterObject(Name);
                     break;
                 default:
                     return null;
