@@ -23,11 +23,11 @@ namespace Diner_Smash
         public static bool IsDebugMode = false;
         public static Texture2D BaseTexture;
         public static UserInterface UILayer;
-        public static Camera GameCamera = new Camera();
+        public static Camera GameCamera;
         /// <summary>
         /// A mouse position relative to the camera and zoom.
         /// </summary>
-        public static Point MousePosition;
+        public static Vector2 MousePosition { get => GameCamera.CalculatedMousePos; }
         public static Random GlobalRandom = new Random();
         public ObjectSpawnList Spawner;
         public FrameCounter frameCounter = new FrameCounter();
@@ -111,7 +111,8 @@ namespace Diner_Smash
             GlobalInput.UserInput += UserInputted;
             BaseTexture = new Texture2D(GraphicsDevice, 1, 1);
             BaseTexture.SetData(new Color[1] { Color.White });
-            GameScene = new Playground();            
+            GameScene = new Playground();
+            GameCamera = new Camera(GraphicsDevice);
             base.Initialize();
         }        
 
@@ -176,7 +177,6 @@ namespace Diner_Smash
                 SafeExit = true;
             if (SafeExit)
                 Exit();
-            MousePosition = Mouse.GetState().Position + GameCamera.Camera_Viewport.Location;
             GameCamera.Update();
             double delta = gameTime.ElapsedGameTime.TotalSeconds;
             if (delta == 0)
@@ -247,30 +247,8 @@ namespace Diner_Smash
             if (DEBUGInformationStackPanel.Components.Count == 0)
             {
                 DEBUGInformationStackPanel.CreateImage(BaseTexture, Color.Black * .75f, new Rectangle(10, 10, 0, 0));
-
-                if (false)
-                {
-                    if (IsDebugMode)
-                        DEBUGInformationStackPanel.AddRange(false,
-                            new InterfaceComponent().CreateText(PlacementMode ? "PLACEMENT MODE" : "DEBUG MODE", Color.White, new Point(10)));
-                    DEBUGInformationStackPanel.
-                        AddRange(false, !IsDebugMode ? new InterfaceComponent[] { frameCounter.Format()[0] } : frameCounter.Format());
-                    try
-                    {
-                        if (IsDebugMode)
-                            foreach (var c in Objects.Where(x => x is Player))
-                            {
-                                foreach (var t in c.ReturnDebugInfo())
-                                    DEBUGInformationStackPanel.AddRange(false,
-                                        new InterfaceComponent().CreateText(t.Replace("*", ""), Color.White,
-                                        t.StartsWith("*") ? new Point(10, 10) : new Point(15, 5)));
-                            }
-                    }
-                    catch { }
-                    DEBUGInformationStackPanel.Reformat();
-                }
                 DEBUGInformationStackPanel.
-                    AddRange(false, !IsDebugMode ? new InterfaceComponent[] { frameCounter.Format()[0] } : frameCounter.Format());
+                    AddRange(InterfaceComponent.HorizontalLock.Left, !IsDebugMode ? new InterfaceComponent[] { frameCounter.Format()[0] } : frameCounter.Format());
                 DEBUGInformationStackPanel.AddToParent(UILayer);
             }
             frameCounter.Format();
@@ -286,7 +264,7 @@ namespace Diner_Smash
             GraphicsDevice.Clear(Color.CornflowerBlue);
             if (_loaded)
             {
-                spriteBatch.Begin(SpriteSortMode.Deferred, null, null, null, null, null, GameCamera.Transform(GraphicsDevice));
+                spriteBatch.Begin(SpriteSortMode.Deferred, null, null, null, null, null, GameCamera.Transform());
                 GameScene.Draw(spriteBatch);                
                 if (Main.IsDebugMode)
                     Player?.PathFinder.DEBUG_DrawMap(spriteBatch);

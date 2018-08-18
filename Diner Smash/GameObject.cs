@@ -50,6 +50,7 @@ namespace Diner_Smash
         public enum ObjectNameTable { None, Table, Food, WaitHere, WelcomeMat, Player, Person, Menu, POS, CardboardBoxDesk, FoodCounter };        
         public ObjectNameTable Identity;
 
+        public bool IsDragging { get; internal set; } = false;
         public bool IsRoutable = true;
         public bool IsInteractable = true;
         public bool IsClickable = true;
@@ -136,6 +137,14 @@ namespace Diner_Smash
         }
 
         /// <summary>
+        /// The slot the character navigates to interact with the object.
+        /// </summary>
+        public virtual Point InteractionPoint
+        {
+            get => Location.ToPoint();
+        }
+
+        /// <summary>
         /// Overridden to load texture during Main.Load();
         /// </summary>
         /// <param name="Content"></param>
@@ -157,14 +166,7 @@ namespace Diner_Smash
         public delegate void OnClickHandler(ObjectContext Affected);
         public event OnClickHandler OnClick;
 
-        internal Color DEBUG_Highlight;
-        /// <summary>
-        /// The slot the character navigates to interact with the object.
-        /// </summary>
-        public virtual Point InteractionPoint
-        {
-            get => Location.ToPoint();
-        }   
+        internal Color DEBUG_Highlight;        
 
         /// <summary>
         /// Loads the Object
@@ -196,14 +198,14 @@ namespace Diner_Smash
             if (e.MouseLeftClick && IsMouseOver && !Main.PlacementMode)
                 Interact(Main.Player);
         }
-
-        public bool IsDragging { get; private set; } = false;
-        Point LastMousePos = Point.Zero;
+        
+        public Point LastMousePos = Point.Zero;
+        public Vector2 ScaledCollisionMousePosition;
         private void GameObject_OnClick(ObjectContext Affected)
         {            
             if ((!Main.PlacementMode && !Draggable) || IsDragging || Main.ObjectDragging != null)
                 return;
-            LastMousePos = Mouse.GetState().Position;
+            LastMousePos = Main.MousePosition.ToPoint();
             IsDragging = true;
             Main.ObjectDragging = this;
         }
@@ -220,16 +222,20 @@ namespace Diner_Smash
                 return;
             if (IsDragging)
             {                
-                Point change = Mouse.GetState().Position - LastMousePos;
+                Point change = Main.MousePosition.ToPoint() - LastMousePos;
                 if (Mouse.GetState().RightButton == ButtonState.Released)
                     Location += change.ToVector2();
-                LastMousePos = Mouse.GetState().Position;
+                LastMousePos = Main.MousePosition.ToPoint();
                 if (Mouse.GetState().LeftButton == ButtonState.Released || (!Main.PlacementMode && !Draggable))
                 {
                     IsDragging = false;
                     Main.ObjectDragging = null;
                 }
             }
+            if (BoundingRectangle.Right > Main.SourceLevel.LevelSize.X)
+                X = Main.SourceLevel.LevelSize.X - Width;
+            if (X < 0)
+                X = 0;
             if (Interacting)
                 DEBUG_Highlight = Color.Orange;
             else if (Main.DEBUG_HighlightingMode)
@@ -264,10 +270,8 @@ namespace Diner_Smash
 
         public virtual string[] ReturnDebugInfo()
         {            
-            return new string[] { $"*{Identity}", $"Location: {Location}", $"Size: {new Point(Width, Height)}",  $"MouseCollision: {_mouseLastCollision}", $"Mouse Location: {Main.MousePosition}" };
-        }
-
-        public Point _mouseLastCollision;        
+            return new string[] { $"*{Identity}", $"Location: {Location}", $"Size: {new Point(Width, Height)}",  $"MouseCollision: {ScaledCollisionMousePosition}", $"Mouse Location: {Main.MousePosition}" };
+        }              
 
         /// <summary>
         /// Writes vital information to an XML Element
@@ -285,7 +289,7 @@ namespace Diner_Smash
         }
 
         public virtual GameObject XmlDeserialize(XElement ReadFrom, ContentManager Content)
-        {
+        {            
             var e = ReadFrom;
             if (e.Element("GameObjectIdentity") == null)
                 throw new Exception("Incorrect Format!");
@@ -361,7 +365,9 @@ namespace Diner_Smash
             if (Main.IsDebugMode)
             {
                 if (IsClickable)
-                    spriteBatch.Draw(Main.BaseTexture, new Rectangle(Location.ToPoint() + _mouseLastCollision, new Point(10)), Color.DeepSkyBlue);
+                {
+                    spriteBatch.Draw(Main.BaseTexture, Location + ScaledCollisionMousePosition, null, IsMouseOver ? Color.Green : Color.Red,0f, Vector2.Zero, 10, SpriteEffects.None, 1);
+                }
                 spriteBatch.Draw(Main.BaseTexture, BoundingRectangle, DEBUG_Highlight * .5f);
             }
         }

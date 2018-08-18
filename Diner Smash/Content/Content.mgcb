@@ -44,18 +44,6 @@
 /processorParam:TextureFormat=Compressed
 /build:Font.spritefont
 
-#begin Objects/WelcomeMat.png
-/importer:TextureImporter
-/processor:TextureProcessor
-/processorParam:ColorKeyColor=255,0,255,255
-/processorParam:ColorKeyEnabled=True
-/processorParam:GenerateMipmaps=False
-/processorParam:PremultiplyAlpha=True
-/processorParam:ResizeToPowerOfTwo=False
-/processorParam:MakeSquare=False
-/processorParam:TextureFormat=Color
-/build:Objects/WelcomeMat.png
-
 #begin Objects/Table/PART_TableSeat.png
 /importer:TextureImporter
 /processor:TextureProcessor
@@ -206,6 +194,18 @@
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
 /build:Objects/CTable.png
+
+#begin Objects/WelcomeMat.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:Objects/WelcomeMat.png
 
 #begin Entities/Player/Idle.png
 /importer:TextureImporter

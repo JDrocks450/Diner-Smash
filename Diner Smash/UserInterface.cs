@@ -180,23 +180,25 @@ namespace Diner_Smash
         public Color MaskingColor = Color.White;
         public InterfaceFont Font = new InterfaceFont();
 
-        public InterfaceComponent CreateText(string Text, Color MaskingColor, Point Location, bool ChangeLocation = true)
+        public InterfaceComponent CreateText(string Text, Color MaskingColor, Point Location = default, bool ChangeLocation = true, HorizontalLock Align = HorizontalLock.Center)
         {
             RenderText = Text;
             this.MaskingColor = MaskingColor;
             if (ChangeLocation)
                 Destination = new Rectangle(Location, Point.Zero);
             GetRender = Render.InterfaceFont;
+            HLock = Align;
             return this;
         }
 
-        public InterfaceComponent CreateText(InterfaceFont Font, string Text, Color MaskingColor, Point Location)
+        public InterfaceComponent CreateText(InterfaceFont Font, string Text, Color MaskingColor, Point Location = default, HorizontalLock Align = HorizontalLock.Center)
         {
             RenderText = Text;
             this.MaskingColor = MaskingColor;
             Destination = new Rectangle(Location, Point.Zero);
             GetRender = Render.InterfaceFont;
             this.Font = Font;
+            HLock = Align;
             return this;
         }
 
@@ -209,14 +211,14 @@ namespace Diner_Smash
             return this;
         }
 
-        public Button CreateButton(string Text, Color BackgroundColor, Color ForeColor, Color Highlight, Color Click, Rectangle Space)
+        public Button CreateButton(string Text, Color BackgroundColor, Color ForeColor, Color Highlight, Color Click, Rectangle Space, HorizontalLock Align = HorizontalLock.None)
         {
-            return new Button().CreateButton(Text, BackgroundColor, ForeColor, Highlight, Click, Space);
+            return new Button().CreateButton(Text, BackgroundColor, ForeColor, Highlight, Click, Space, Align);
         }
 
-        public TextBox CreateTextBox(string Text, Color BackgroundColor, Color ForeColor, Color Highlight, Color Click, Rectangle Space)
+        public TextBox CreateTextBox(string Text, Color BackgroundColor, Color ForeColor, Color Highlight, Color Click, Rectangle Space, HorizontalLock Align = HorizontalLock.None)
         {
-            return new TextBox().CreateTextBox(Text, BackgroundColor, ForeColor, Highlight, Click, Space);
+            return new TextBox().CreateTextBox(Text, BackgroundColor, ForeColor, Highlight, Click, Space, Align);
         }
 
         public virtual void AddToParent(InterfaceParentComponent Parent)
@@ -255,7 +257,7 @@ namespace Diner_Smash
         {
             if (Availablity == ObjectContext.AvailablityStates.Disabled)
                 return;
-            var newLoc = Margin;
+            var newLoc = Point.Zero;
             switch (HLock)
             {                
                 case HorizontalLock.Left:
@@ -280,7 +282,7 @@ namespace Diner_Smash
                     newLoc.Y = Parent.Destination.Height - Size.Y;
                     break;
             }
-            newLoc += Parent.Destination.Location;
+            newLoc += Margin + Parent.Destination.Location;
             LiteralLocation = newLoc;
             AutoSize();
         }
@@ -300,12 +302,73 @@ namespace Diner_Smash
         }
     }
 
-    public class InterfaceParentComponent : InterfaceComponent
+    public abstract class InterfaceParentComponent : InterfaceComponent
     {
-        public List<InterfaceComponent> Components { get; set; }
-        public InterfaceParentComponent()
+        public List<InterfaceComponent> Components { get; set; } = new List<InterfaceComponent>();
+
+        const int DIALOG_BUTTON_Width = 135;
+        const int DIALOG_BUTTON_Height = 35;
+
+        public bool IsDialog { get; internal set; }
+        public string DIALOG_ButtonOK = "OK";
+        public string DIALOG_ButtonCANCEL = "Cancel";
+        public bool? DIALOG_Result = null;
+        /// <summary>
+        /// Formats a dialog with a title and OK/CANCEL buttons, allowing you to add as many components in between as you like.
+        /// </summary>
+        /// <param name="Title"></param>
+        /// <param name=""></param>
+        /// <returns></returns>
+        public InterfaceParentComponent CreateDialog(string Title, HorizontalLock UserAddedComponentsLock, bool styleComponents = false, params InterfaceComponent[] components)
         {
-            Components = new List<InterfaceComponent>();
+            int addedcontrols = 3;
+            IsDialog = true;
+            VLock = VerticalLock.Center;
+            HLock = HorizontalLock.Center;
+            AddRange(HorizontalLock.Center,
+                new InterfaceComponent().CreateText(
+                    new InterfaceFont(14, InterfaceFont.Styles.Bold),
+                    Title, Color.White, new Point(20, 20), HorizontalLock.Center));
+            AddRange(HorizontalLock.Left, components);
+            if (styleComponents)
+            foreach(var c in components)
+                {
+                    if (c is TextBox)
+                        c.CreateTextBox(c.RenderText,
+                            Color.White * .2f,
+                            Color.White,
+                            Color.White * .5f,
+                            Color.White * .6f,
+                            new Rectangle(10, 10, -1, -1), c.HLock);
+                }
+            AddRange(HorizontalLock.Center,
+                new InterfaceComponent().CreateButton(DIALOG_ButtonOK,
+                    Color.White * .2f,
+                    Color.White,
+                    Color.Green * .5f,
+                    Color.Green * .8f,
+                    new Rectangle(0, 10, DIALOG_BUTTON_Width, DIALOG_BUTTON_Height)),
+                new InterfaceComponent().CreateButton(DIALOG_ButtonCANCEL,
+                    Color.White * .2f,
+                    Color.White,
+                    Color.Red * .5f,
+                    Color.Red * .8f,
+                    new Rectangle(0, 5, DIALOG_BUTTON_Width, DIALOG_BUTTON_Height)));
+            (Components[addedcontrols + components.Length - 2] as Button).OnClick += (Button Sender) => { DIALOG_Result = true; CloseDialog(); };
+            (Components[addedcontrols + components.Length - 1] as Button).OnClick += (Button Sender) => { DIALOG_Result = false; CloseDialog(); };
+            AddToParent(Main.UILayer);
+            return this;
+        }
+
+        public virtual void AddRange(HorizontalLock LockItems = HorizontalLock.Left, params InterfaceComponent[] components)
+        {
+            foreach (var c in components)
+            {
+                if (c is null)
+                    continue;
+                c.STACKPANEL_Padding = c.Destination.Location;
+                c.AddToParent(this);
+            }            
         }
 
         /// <summary>
@@ -345,21 +408,25 @@ namespace Diner_Smash
             base.RemoveFromParent(remove);
         }
 
-        bool _dialogHolding = false;
+        public bool DialogOpened { get; internal set; }
 
         /// <summary>
         /// Displays the control and it's contents as a thread-blocking dialog.
         /// </summary>
-        public Task ShowAsDialog()
+        public Task<bool?> ShowAsDialog()
         {
+            if (DialogOpened)
+                throw new InvalidOperationException("You can't open an opened dialog... that's illegal");
             return Task.Run(() =>
                 {
+                    IsDialog = true;
                     Exclusive = true;
-                    _dialogHolding = true;
+                    DialogOpened = true;
                     AddToParent(Main.UILayer);
-                    while (_dialogHolding) { }
+                    while (DialogOpened) { }
                     RemoveFromParent();
                     Exclusive = false;
+                    return DIALOG_Result;
                 });
         }
 
@@ -368,59 +435,89 @@ namespace Diner_Smash
         /// </summary>
         public void CloseDialog()
         {
-            _dialogHolding = false;
+            if (!IsDialog)
+                return;
+            DialogOpened = false;
         }
     }
 
     public class UserInterface : InterfaceParentComponent
     {
+        public class ObjectCustomizer : StackPanel
+        {
+
+        }
+
         public class ObjectSpawnList : StackPanel
         {
             public ContentManager Content { get => Main.Manager; }
 
             public ObjectSpawnList()
             {
-                int i = 2; //the amount of extra components to add
-                var objsList = new InterfaceComponent[Enum.GetNames(typeof(GameObject.ObjectNameTable)).Count() + i];                
+                int newButtons = 3; //the amount of extra components to add
+                var objsList = new InterfaceComponent[Enum.GetNames(typeof(GameObject.ObjectNameTable)).Count() + newButtons];
                 objsList[0] = new InterfaceComponent().CreateText("Add Object to Room", Color.White, new Point(15));
-                objsList[1] = new InterfaceComponent().CreateButton("Change Floor Color", 
+                objsList[1] = new InterfaceComponent().CreateButton("Change Floor Color",
                     Main.GameScene.FloorMask * .25f,
                     Color.White,
-                    Main.GameScene.FloorMask * .5f, 
-                    Main.GameScene.FloorMask * .60f, 
+                    Main.GameScene.FloorMask * .5f,
+                    Main.GameScene.FloorMask * .60f,
                     new Rectangle(new Point(10, 10), new Point(175, 50)));
-                (objsList[1] as Button).OnClick += (Button Sender) =>
+                (objsList[1] as Button).OnClick += ShowFloorColorChangeDialog;
+                objsList[2] = new InterfaceComponent().CreateButton("Change Room Size",
+                    Color.Black * .3f,
+                    Color.White,
+                    Color.White * .5f,
+                    Color.DeepSkyBlue,
+                    new Rectangle(new Point(10, 10), new Point(175, 50)));
+                (objsList[2] as Button).OnClick += ShowChangeFloorSizeDialog; ;
+                foreach (var s in Enum.GetNames(typeof(GameObject.ObjectNameTable)).Where(x => x != "None"))
                 {
-                    using (System.Windows.Forms.ColorDialog d = new System.Windows.Forms.ColorDialog())
-                    {
-                        d.Color = Main.GameScene.FloorMask.ToDrawingColor();
-                        d.AnyColor = true;
-                        d.AllowFullOpen = true;
-                        d.FullOpen = true;
-                        d.SolidColorOnly = false;
-                        if (d.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-                            Main.GameScene.FloorMask = d.Color.ToXNAColor();
-                    }
-                    Sender.Background = Main.GameScene.FloorMask * .25f;
-                    Sender.High = Main.GameScene.FloorMask * .5f;
-                    Sender.Click = Main.GameScene.FloorMask * .60f; 
-                };
-                foreach (var s in Enum.GetNames(typeof(GameObject.ObjectNameTable)))
-                {
-                    objsList[i] = new InterfaceComponent().CreateButton(s,
+                    objsList[newButtons] = new InterfaceComponent().CreateButton(s,
                         Color.Black * .3f,
                         Color.White,
                         Color.White * .5f,
                         Color.DeepSkyBlue,
-                        new Rectangle(i == 1 ? new Point(10) : new Point(10, 2), new Point(175, 50)));
-                    objsList[i].Tag = Enum.Parse(typeof(GameObject.ObjectNameTable), s);
-                    (objsList[i] as Button).OnClick += ObjectSpawnList_OnClick;
-                    i++;
+                        new Rectangle(newButtons == 1 ? new Point(10) : new Point(10, 2), new Point(175, 50)));
+                    objsList[newButtons].Tag = Enum.Parse(typeof(GameObject.ObjectNameTable), s);
+                    (objsList[newButtons] as Button).OnClick += ObjectSpawnList_OnClick;
+                    newButtons++;
                 }
-                AddRange(true, objsList);
+                AddRange(HorizontalLock.Center, objsList);
                 HLock = HorizontalLock.Right;
                 Main.GlobalInput.UserInput += GlobalInput_UserInput;
                 AddToParent(Main.UILayer);
+            }
+
+            private void ShowChangeFloorSizeDialog(Button sender)
+            {
+                new StackPanel(Color.Green * .5f, false).CreateDialog("Input a New Size for Your Room", 
+                    HorizontalLock.Left, false,
+                    new InterfaceComponent().CreateTextBox("Width", Color.White * .2f,
+                    Color.White,
+                    Color.White * .5f,
+                    Color.White * .8f, new Rectangle(10, 5, 200, 50)),
+                new InterfaceComponent().CreateTextBox("Height", Color.White * .2f,
+                    Color.White,
+                    Color.White * .5f,
+                    Color.White * .8f, new Rectangle(5, 5, 200, 50))).ShowAsDialog(); //<-- Shows Dialog
+            }
+
+            private void ShowFloorColorChangeDialog(Button Sender)
+            {
+                using (System.Windows.Forms.ColorDialog d = new System.Windows.Forms.ColorDialog())
+                {
+                    d.Color = Main.GameScene.FloorMask.ToDrawingColor();
+                    d.AnyColor = true;
+                    d.AllowFullOpen = true;
+                    d.FullOpen = true;
+                    d.SolidColorOnly = false;
+                    if (d.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                        Main.GameScene.FloorMask = d.Color.ToXNAColor();
+                }
+                Sender.Background = Main.GameScene.FloorMask * .25f;
+                Sender.High = Main.GameScene.FloorMask * .5f;
+                Sender.Click = Main.GameScene.FloorMask * .60f;
             }
 
             private void GlobalInput_UserInput(InputHelper.InputEventArgs e)
@@ -475,7 +572,7 @@ namespace Diner_Smash
                 new Rectangle(0, 0, 500, 50));
             }
 
-            public new TextBox CreateTextBox(string Text, Color BackgroundColor, Color ForeColor, Color Highlight, Color Active, Rectangle Space)
+            public new TextBox CreateTextBox(string Text, Color BackgroundColor, Color ForeColor, Color Highlight, Color Active, Rectangle Space, HorizontalLock Align = HorizontalLock.None)
             {
                 RenderText = Text;
                 Background = BackgroundColor;
@@ -487,6 +584,7 @@ namespace Diner_Smash
                     Main.GlobalInput.UserInput += GlobalInput_UserInput;
                 GetRender = Render.Texture2D;
                 Availablity = ObjectContext.AvailablityStates.Enabled;
+                HLock = Align;
                 return this;
             }
 
@@ -679,7 +777,7 @@ namespace Diner_Smash
             public Color Background, Foreground, High, Click;
             public bool IsMouseOver = false;
 
-            public new Button CreateButton(string Text, Color BackgroundColor, Color ForeColor, Color Highlight, Color Click, Rectangle Space)
+            public new Button CreateButton(string Text, Color BackgroundColor, Color ForeColor, Color Highlight, Color Click, Rectangle Space, HorizontalLock Align)
             {
                 RenderText = Text;
                 Background = BackgroundColor;
@@ -689,6 +787,7 @@ namespace Diner_Smash
                 Destination = Space;
                 Main.GlobalInput.UserInput += GlobalInput_UserInput;
                 GetRender = Render.Texture2D;
+                HLock = Align;
                 return this;
             }
 
@@ -817,23 +916,17 @@ namespace Diner_Smash
             /// Adds the reformats the stack and uses the current Destination values as Padding.
             /// </summary>
             /// <param name="components"></param>
-            public void AddRange(bool reformat, params InterfaceComponent[] components)
+            public override void AddRange(HorizontalLock LockItems = HorizontalLock.Left, params InterfaceComponent[] components)
             {
-                foreach (var c in components)
-                {
-                    if (c is null)
-                        continue;
-                    c.STACKPANEL_Padding = c.Destination.Location;
-                    c.AddToParent(this);
-                }
-                if (reformat) Reformat();
+                base.AddRange(LockItems, components);
+                Reformat(LockItems);
             }
 
             /// <summary>
             /// Stacks each component visually.
             /// </summary>
             /// <param name="Font">If no components are SpriteFont components leave this default.</param>
-            public void Reformat()
+            public void Reformat(HorizontalLock LockItems = HorizontalLock.None)
             {
                 int heightPadding = -1, widthPadding = -1;
                 int widestComponent = -1;
@@ -841,8 +934,11 @@ namespace Diner_Smash
                 foreach (var c in Components)
                 {
                     _lastPoint.Y += c.STACKPANEL_Padding.Y;
+                    if (LockItems != HorizontalLock.None && c.HLock == HorizontalLock.None)
+                        c.HLock = LockItems;
+                    if (c.HLock != HorizontalLock.Center && c.Margin.X == 0)
+                        c.Margin = new Point(c.STACKPANEL_Padding.X,0);
                     c.Y = _lastPoint.Y;
-                    c.HLock = HorizontalLock.Center;
                     if (heightPadding == -1)
                         heightPadding = c.STACKPANEL_Padding.Y;
                     if (widthPadding == -1)
@@ -908,7 +1004,7 @@ namespace Diner_Smash
             Notification = new StackPanel(Background, false);
             Notification.HLock = HorizontalLock.Center;
             Notification.VLock = VerticalLock.Bottom;
-            Notification.AddRange(true, new InterfaceComponent().CreateText(new InterfaceFont(14, InterfaceFont.Styles.Bold), text, Foreground, new Point(30, 20)));
+            Notification.AddRange(HorizontalLock.Center, new InterfaceComponent().CreateText(new InterfaceFont(14, InterfaceFont.Styles.Bold), text, Foreground, new Point(30, 20)));
             Notification.AddToParent(this);
             _timeSinceOpened = TimeSpan.Zero;
             _notifyTimer = OpenFor;

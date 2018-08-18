@@ -114,7 +114,7 @@ namespace Diner_Smash
             }
             if (e.MouseLeftClick && !Main.Objects.Where(x => x.IsMouseOver).Any())
             {                
-                var p = Main.MousePosition;
+                var p = Main.MousePosition.ToPoint();
                 Tasks.Add(new Task(() => RequestNavigation(p)));
             }
         }
@@ -240,8 +240,7 @@ namespace Diner_Smash
             {
                 Texture = Frames[Frame];
                 FrameSize = new Point(Texture.Width, Texture.Height);
-                Width = (int)(FrameSize.X * Scale);
-                Height = (int)(FrameSize.Y * Scale);
+                base.Load();
                 _frameChanged = false;
             }
             base.Update(gameTime);

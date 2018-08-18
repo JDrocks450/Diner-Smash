@@ -52,7 +52,7 @@ namespace Diner_Smash
         {
             var hostJoinPrompt = new StackPanel(Color.DarkOrange * .75f, false);
             hostJoinPrompt.SetCenterScreen();
-            hostJoinPrompt.AddRange(true,
+            hostJoinPrompt.AddRange(InterfaceComponent.HorizontalLock.Center,
                 new InterfaceComponent().CreateText(new InterfaceFont(12, InterfaceFont.Styles.Bold), "What would you like to do?", Color.White, new Point(10)),
                 new InterfaceComponent().CreateButton("Host Server", Color.Orange * .5f, Color.White,
                     Color.MonoGameOrange * .5f, Color.MonoGameOrange, new Rectangle(new Point(10, 5), new Point(-1, 50))),
@@ -122,7 +122,7 @@ namespace Diner_Smash
                         textPrompt.Reformat();
                     }
                 }
-                textPrompt.AddRange(true, updatingChatSummary,
+                textPrompt.AddRange(InterfaceComponent.HorizontalLock.Left, updatingChatSummary,
                     ShowTextBox ? new InterfaceComponent().CreateTextBox("", Color.Black * .65f, Color.White,
                         Color.Black * .5f, Color.MidnightBlue * .5f, new Rectangle(new Point(10, 5), new Point(-1, 35))) : null);
                 if (ShowTextBox)
@@ -152,24 +152,21 @@ namespace Diner_Smash
             return Task.Run(() =>
             {
                 var IPsubmit = "";
-                var hostJoinPrompt = new StackPanel(Color.RoyalBlue * .75f, false);
-                hostJoinPrompt.SetCenterScreen();
-                hostJoinPrompt.Exclusive = true;
-                hostJoinPrompt.AddRange(true,
-                    new InterfaceComponent().CreateText("Enter the Host's IP Address", Color.White, new Point(10)),
-                    new InterfaceComponent().CreateTextBox("", Color.Blue * .5f, Color.White,
-                        Color.DeepSkyBlue * .75f, Color.DeepSkyBlue, new Rectangle(new Point(10, 5), new Point(200, 50))),
-                    new InterfaceComponent().CreateButton("Join", Color.Blue * .5f, Color.White,
-                        Color.DeepSkyBlue * .75f, Color.DeepSkyBlue, new Rectangle(new Point(10, 5), new Point(200, 50))));
+                var hostJoinPrompt = new StackPanel(Color.RoyalBlue * .25f, false);
+                hostJoinPrompt.CreateDialog("Enter the Host's IP Address", InterfaceComponent.HorizontalLock.Center, true,
+                        new InterfaceComponent().CreateTextBox("", Color.Blue * .5f, Color.White,
+                            Color.DeepSkyBlue * .75f, Color.DeepSkyBlue, new Rectangle(new Point(20, 10), new Point(300, 35))));                        
                 void Event(object sender)
                 {
                     IPsubmit = ((hostJoinPrompt.Components[1] as TextBox).RenderText);
-                }
-                (hostJoinPrompt.Components[2] as Button).OnClick += Event;
+                }                
                 (hostJoinPrompt.Components[1] as TextBox).Accepted += Event;
-                hostJoinPrompt.AddToParent(Main.UILayer);                
+                hostJoinPrompt.AddToParent(Main.UILayer);
                 onError:
-                while (IPsubmit == "") { }
+                if (hostJoinPrompt.ShowAsDialog().Result.Value)
+                    Event(null);
+                else
+                    return IPAddress.None;
                 var IP = IPAddress.None;
                 try
                 {
@@ -179,7 +176,6 @@ namespace Diner_Smash
                         IP = IPAddress.Parse(IPsubmit);
                 }
                 catch (FormatException) { IPsubmit = ""; goto onError; }
-                hostJoinPrompt.RemoveFromParent();
                 return IP;
             });
         }
@@ -198,10 +194,16 @@ namespace Diner_Smash
                 case 0: //host
                     CreateServer();
                     break;
-                case 1:           
-                    if(!Keyboard.GetState().IsKeyDown(Keys.LeftControl))
+                case 1:
+                    if (!Keyboard.GetState().IsKeyDown(Keys.LeftControl))
                         JoinIP = await PromptForIP();
-                    break;
+                    if (JoinIP == IPAddress.None)
+                    {
+                        Main.UpdateLevel(null);
+                        return;
+                    }
+                    else
+                        break;
             }
             MultiplayerClient = new Client();
             #region Subscribe to events

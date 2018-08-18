@@ -17,6 +17,9 @@ namespace Diner_Smash
         public Texture2D Floor;
         public Color FloorMask = Color.White;
 
+        int column = 0;
+        int row = 0;
+
         public Playground()
         {
             
@@ -42,12 +45,21 @@ namespace Diner_Smash
                 for (int h = 0; h < Source.LevelSize.Y; h += Floor.Height)
                 {
                     Floors.Add(new Point(i, h));
+                    row = h;
                 }
+                column = i;
             }
+            column+=Floor.Height;
+            row+=Floor.Width;
+            Source.LevelSize = new Point(row, column);
         }
 
         public void Draw(SpriteBatch batch)
         {
+            int padding = -5;
+            batch.Draw(Main.BaseTexture,
+                new Rectangle(new Point(padding), new Point(row+padding*2*-1, column+padding*2 * -1)),
+                Color.Red);
             try
             {
                 foreach (var f in Floors)

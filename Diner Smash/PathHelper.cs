@@ -56,10 +56,10 @@ namespace Diner_Smash
             StackPanel stack = new StackPanel(default, false);
             public void Update()
             {
-                var mouserect = new Rectangle(Main.MousePosition, new Point(1, 1));
+                var mouserect = new Rectangle(Main.MousePosition.ToPoint(), new Point(1, 1));
                 var collision = new Rectangle(Location, new Point(30));
                 stack.CreateImage(Main.BaseTexture, Color.Black, default);
-                stack.AddRange(true, new InterfaceComponent().CreateText($"F: {F}", Color.White, new Point(10)),
+                stack.AddRange(InterfaceComponent.HorizontalLock.Left, new InterfaceComponent().CreateText($"F: {F}", Color.White, new Point(10)),
                     new InterfaceComponent().CreateText($"G: {G}", Color.White, new Point(10)),
                     new InterfaceComponent().CreateText($"H: {H}", Color.White, new Point(10)));                
                 if (collision.Intersects(mouserect))
