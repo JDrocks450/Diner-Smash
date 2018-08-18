@@ -15,7 +15,7 @@ namespace Diner_Smash
         {
             get
             {
-                return new Point(BoundingRectangle.Center.X, BoundingRectangle.Bottom + Main.Player.PathFinder.Height);
+                return new Point(BoundingRectangle.Center.X, BoundingRectangle.Bottom + Main.Player?.PathFinder.Height ?? -1);
             }
         }
 

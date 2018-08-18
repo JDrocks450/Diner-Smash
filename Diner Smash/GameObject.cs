@@ -16,16 +16,27 @@ using static Diner_Smash.PathHelper;
 
 namespace Diner_Smash
 {        
+    [System.AttributeUsage(AttributeTargets.Field)]
+    public class DinerSmashObjectOption : System.Attribute
+    {
+
+    }
+
     [Serializable]
     /// <summary>
     /// Holds the data for an object or a part of an object.
     /// </summary>
-    public class ObjectContext
+    public abstract class ObjectContext
     {
         public ObjectContext(string Name = "Untitled", ObjectNameTable Identity = ObjectNameTable.None)
         {
             this.Name = Name;
             this.Identity = Identity;
+            if (Identity != ObjectNameTable.None)
+            {
+                Customizer = new UserInterface.ObjectCustomizer(this);
+                Customizer.Availablity = AvailablityStates.Invisible;
+            }
         }
 
         public virtual void Init(Vector2 StartPosition, Point Size, Texture2D texture, float DrawIndex)
@@ -50,6 +61,7 @@ namespace Diner_Smash
         public enum ObjectNameTable { None, Table, Food, WaitHere, WelcomeMat, Player, Person, Menu, POS, CardboardBoxDesk, FoodCounter };        
         public ObjectNameTable Identity;
 
+        public UserInterface.ObjectCustomizer Customizer;
         public bool IsDragging { get; internal set; } = false;
         public bool IsRoutable = true;
         public bool IsInteractable = true;
@@ -64,17 +76,23 @@ namespace Diner_Smash
         public Vector2 RotateOrigin = new Vector2(-1, -1);
 
         public string Name;
+        [DinerSmashObjectOption]
         public int ID;
+        [DinerSmashObjectOption]
         public float X;
+        [DinerSmashObjectOption]
         public float Y;
+        [DinerSmashObjectOption]
         /// <summary>
         /// The Object's width WITHOUT Scale factored in.
         /// </summary>
         public int Width;
+        [DinerSmashObjectOption]
         /// <summary>
         /// The Object's height WITHOUT Scale factored in.
         /// </summary>
         public int Height;
+        [DinerSmashObjectOption]
         public double Scale = 1;
 
         public enum AvailablityStates
@@ -115,7 +133,7 @@ namespace Diner_Smash
                 Width = value.X;
                 Height = value.Y;
             }
-            get => new Point(Width, Height);
+            get => new Point((int)(Width * Scale), (int)(Height * Scale));
         }
 
         /// <summary>
@@ -181,11 +199,11 @@ namespace Diner_Smash
 
         private void GlobalInput_UserInput(InputHelper.InputEventArgs e)
         {
-            if (IsDragging)
+            if (IsMouseOver)
+            {
                 if (e.PressedKeys.Contains(Keys.Delete))
                 {
-                    Main.ObjectDragging = null;
-                    Main.Objects.Remove(this);
+                    Dispose();
                 }
                 else if (e.PressedKeys.Contains(Keys.F))
                 {
@@ -195,10 +213,31 @@ namespace Diner_Smash
                         i = 0;
                     Effects = (SpriteEffects)i;
                 }
+                if (e.PressedKeys.Contains(Keys.Up))
+                    Scale += .05;
+                else if (e.PressedKeys.Contains(Keys.Down))
+                    Scale -= .05;
+            }
             if (e.MouseLeftClick && IsMouseOver && !Main.PlacementMode)
                 Interact(Main.Player);
+        }               
+
+        /// <summary>
+        /// Provides a safe way to delete the object from the game world.
+        /// </summary>
+        public void Dispose()
+        {
+            Customizer?.RemoveFromParent();
+            foreach (var i in GetType().GetFields())
+                try
+                {
+                    i.SetValue(this, default);
+                }
+                catch { }
+            Main.ObjectDragging = null;
+            Main.Objects.Remove(this);            
         }
-        
+
         public Point LastMousePos = Point.Zero;
         public Vector2 ScaledCollisionMousePosition;
         private void GameObject_OnClick(ObjectContext Affected)
@@ -221,7 +260,7 @@ namespace Diner_Smash
             if (Availablity != AvailablityStates.Enabled)
                 return;
             if (IsDragging)
-            {                
+            {
                 Point change = Main.MousePosition.ToPoint() - LastMousePos;
                 if (Mouse.GetState().RightButton == ButtonState.Released)
                     Location += change.ToVector2();
@@ -232,6 +271,11 @@ namespace Diner_Smash
                     Main.ObjectDragging = null;
                 }
             }
+            if (Customizer != null)
+                if (IsMouseOver)
+                    Customizer.Availablity = AvailablityStates.Enabled;
+                else
+                    Customizer.Availablity = AvailablityStates.Invisible;
             if (BoundingRectangle.Right > Main.SourceLevel.LevelSize.X)
                 X = Main.SourceLevel.LevelSize.X - Width;
             if (X < 0)
@@ -267,10 +311,15 @@ namespace Diner_Smash
                     return false;                
             return true;
         }
-
+        
         public virtual string[] ReturnDebugInfo()
-        {            
-            return new string[] { $"*{Identity}", $"Location: {Location}", $"Size: {new Point(Width, Height)}",  $"MouseCollision: {ScaledCollisionMousePosition}", $"Mouse Location: {Main.MousePosition}" };
+        {
+            var l = new List<string>();
+            foreach(var i in GetType().GetFields().Where(x => x.GetCustomAttributes(typeof(DinerSmashObjectOption), true).Any()))
+            {
+                l.Add($"{i.Name} = {i.GetValue(this)}");
+            }
+            return l.ToArray();
         }              
 
         /// <summary>

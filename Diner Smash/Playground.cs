@@ -45,9 +45,9 @@ namespace Diner_Smash
                 for (int h = 0; h < Source.LevelSize.Y; h += Floor.Height)
                 {
                     Floors.Add(new Point(i, h));
-                    row = h;
+                    column = h;
                 }
-                column = i;
+                row = i;
             }
             column+=Floor.Height;
             row+=Floor.Width;

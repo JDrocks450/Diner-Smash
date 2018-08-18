@@ -55,6 +55,7 @@ namespace Diner_Smash
             IsMouseVisible = true;
             IsFixedTimeStep = false;            
             Window.ClientSizeChanged += ClientSizeChanged;
+            graphics.PreferMultiSampling = false;
             int w, h;
             w = Properties.DinerSmash.Default.GraphicsWidth;
             h = Properties.DinerSmash.Default.GraphicsHeight;
@@ -131,7 +132,7 @@ namespace Diner_Smash
 
         public static void UpdateLevel(LevelSave Save)
         {
-            Objects.Clear();            
+            ClearObjects();           
             Player = null;            
             if (Save is null)
                 Save = LevelSave.Load(Manager);
@@ -164,6 +165,16 @@ namespace Diner_Smash
         public static void AddObject(GameObject Object)
         {
             _waitingObjects.Enqueue(Object);
+        }
+
+        public static void ClearObjects()
+        {
+            var l = Objects.ToArray();
+            foreach(var i in l)
+            {
+                i.Dispose();
+            }
+            Objects.Clear();
         }
 
         /// <summary>

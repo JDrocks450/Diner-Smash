@@ -32,9 +32,9 @@ namespace Diner_Smash
         }
 
         /// <summary>
-        /// The position to center the camera at.
+        /// The the top-left position of the camera
         /// </summary>
-        public Vector2 DesiredPosition
+        public Vector2 ActualPosition
         {
             get { return _pos; }
             set { _pos = value; }
@@ -77,7 +77,7 @@ namespace Diner_Smash
             Zoom += (float)(Mouse.GetState().ScrollWheelValue - _mouseLastScroll) / 1000;
             _mouseLastScroll = Mouse.GetState().ScrollWheelValue;
             if (Mouse.GetState().RightButton == ButtonState.Pressed)            
-                DesiredPosition -= (pos - _lastMousePos).ToVector2() / new Vector2(Zoom);
+                ActualPosition -= (pos - _lastMousePos).ToVector2() / new Vector2(Zoom);
             if (Mouse.GetState().MiddleButton == ButtonState.Pressed && UnlockedCamera)
             {
                 Zoom = 1;

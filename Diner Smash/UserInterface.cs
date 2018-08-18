@@ -90,7 +90,7 @@ namespace Diner_Smash
         }
         public HorizontalLock HLock;
 
-        public InterfaceParentComponent Parent;
+        public InterfaceParentComponent Parent { get; private set; }
         public bool Exclusive { get; set; }
         public bool AutoSizeWidth;
         public bool AutoSizeHeight;
@@ -169,10 +169,7 @@ namespace Diner_Smash
         /// </summary>
         public int Y;
 
-        /// <summary>
-        /// Gets the point on the screen in pixels of the component.
-        /// </summary>
-        public Point LiteralLocation { get; internal set; }
+        public Point LiteralLocation { get; private set; }
 
         public Point STACKPANEL_Padding;
         public string RenderText;
@@ -223,6 +220,8 @@ namespace Diner_Smash
 
         public virtual void AddToParent(InterfaceParentComponent Parent)
         {
+            if (this.Parent != null)
+                RemoveFromParent(true);
             Availablity = ObjectContext.AvailablityStates.Enabled;
             this.Parent = Parent;
             Parent.Components.Add(this);
@@ -234,9 +233,10 @@ namespace Diner_Smash
         /// <param name="remove">If false, the component will prepare to be disabled rather than be removed from parent.</param>
         public virtual void RemoveFromParent(bool remove)
         {
-            Availablity = ObjectContext.AvailablityStates.Disabled;
+            Availablity = ObjectContext.AvailablityStates.Disabled;            
             if (remove)
                 Parent.Components.Remove(this);
+            Parent = null;
         }
 
         public void SetCenterScreen()
@@ -281,8 +281,8 @@ namespace Diner_Smash
                 case VerticalLock.Bottom:
                     newLoc.Y = Parent.Destination.Height - Size.Y;
                     break;
-            }
-            newLoc += Margin + Parent.Destination.Location;
+            }            
+            newLoc += Margin + Parent.Destination.Location;            
             LiteralLocation = newLoc;
             AutoSize();
         }
@@ -355,8 +355,7 @@ namespace Diner_Smash
                     Color.Red * .8f,
                     new Rectangle(0, 5, DIALOG_BUTTON_Width, DIALOG_BUTTON_Height)));
             (Components[addedcontrols + components.Length - 2] as Button).OnClick += (Button Sender) => { DIALOG_Result = true; CloseDialog(); };
-            (Components[addedcontrols + components.Length - 1] as Button).OnClick += (Button Sender) => { DIALOG_Result = false; CloseDialog(); };
-            AddToParent(Main.UILayer);
+            (Components[addedcontrols + components.Length - 1] as Button).OnClick += (Button Sender) => { DIALOG_Result = false; CloseDialog(); };           
             return this;
         }
 
@@ -367,6 +366,7 @@ namespace Diner_Smash
                 if (c is null)
                     continue;
                 c.STACKPANEL_Padding = c.Destination.Location;
+                c.Availablity = Availablity;
                 c.AddToParent(this);
             }            
         }
@@ -388,7 +388,11 @@ namespace Diner_Smash
         public override void AutoSize()
         {
             if (AutoSizeWidth)
-                Width = Components.Select(x => x.Width).Max() + STACKPANEL_Padding.X * 2;
+            {
+                var _width = Components.Select(x => x.Width).Max();
+                var margin = Components.Find(x => x.Width == _width).STACKPANEL_Padding.X;
+                Width = _width + (STACKPANEL_Padding.X + margin);
+            }
             if (AutoSizeHeight)
                 Height = Components.Select(x => x.Y + x.Height).Max() + STACKPANEL_Padding.Y;
         }        
@@ -444,8 +448,60 @@ namespace Diner_Smash
     public class UserInterface : InterfaceParentComponent
     {
         public class ObjectCustomizer : StackPanel
-        {
+        {            
+            public ObjectCustomizer(ObjectContext Subject)
+            {
+                this.Subject = Subject;
+                _title = new InterfaceComponent().CreateText(new InterfaceFont(14, InterfaceFont.Styles.Bold),
+                    $"{Enum.GetName(typeof(ObjectContext.ObjectNameTable),Subject.Identity)} Details",
+                    Color.White, new Point(10), HorizontalLock.Left);  
+                AddToParent(Main.UILayer);
+                Availablity = ObjectContext.AvailablityStates.Invisible;
+            }            
+            public ObjectContext Subject { get; private set; }
 
+            private InterfaceComponent _title;
+            public override void Update(GameTime gameTime)
+            {
+                List<InterfaceComponent> addCom = new List<InterfaceComponent>();
+                int i = 1;
+                if (_title.Parent is null)
+                    addCom.Add(_title);
+                foreach (var e in (Subject as GameObject).ReturnDebugInfo())
+                {
+                    bool create = true;
+                    try
+                    {
+                        create = Components[i] == null;
+                    }
+                    catch { create = true; }
+                    if (create)
+                        addCom.Add(new InterfaceComponent().CreateText(new InterfaceFont(12, InterfaceFont.Styles.Regular),
+                            e, Color.White, new Point(20, 5), HorizontalLock.Left));
+                    else
+                        Components[i].RenderText = e;
+                    i++;
+                }
+                AddRange(HorizontalLock.None, addCom.ToArray());
+                Reposition();
+                base.Update(gameTime);
+            }
+
+            /// <summary>
+            /// Positions itself to the right/left of the object
+            /// </summary>
+            public void Reposition()
+            {
+                var subjectActual = (Subject.Location - Main.GameCamera.ActualPosition).ToPoint();
+                var Margin_ = new Point(subjectActual.X - Destination.Width, subjectActual.Y + ((Subject.Size.Y / 2) - (Size.Y / 2)));
+                if (Margin_.X < 0)
+                    Margin_ = new Point(subjectActual.X + Subject.Width, Margin_.Y);
+                if (Margin_.Y < 0)
+                    Margin_.Y = 0;
+                if (Margin_.Y + Destination.Height > Main.UILayer.Height)
+                    Margin_.Y = Main.UILayer.Height - Destination.Height;
+                Margin = Margin_;
+            }
         }
 
         public class ObjectSpawnList : StackPanel
@@ -489,18 +545,34 @@ namespace Diner_Smash
                 AddToParent(Main.UILayer);
             }
 
-            private void ShowChangeFloorSizeDialog(Button sender)
+            private async void ShowChangeFloorSizeDialog(Button sender)
             {
-                new StackPanel(Color.Green * .5f, false).CreateDialog("Input a New Size for Your Room", 
+                var s = new StackPanel(Color.Green * .5f, false).CreateDialog("Input a New Size for Your Room",
                     HorizontalLock.Left, false,
-                    new InterfaceComponent().CreateTextBox("Width", Color.White * .2f,
+                    new InterfaceComponent().CreateTextBox(Main.SourceLevel.LevelSize.X.ToString(), Color.White * .2f,
                     Color.White,
                     Color.White * .5f,
-                    Color.White * .8f, new Rectangle(10, 5, 200, 50)),
-                new InterfaceComponent().CreateTextBox("Height", Color.White * .2f,
+                    Color.White * .8f, new Rectangle(20, 5, 270, 50)),
+                new InterfaceComponent().CreateTextBox(Main.SourceLevel.LevelSize.Y.ToString(), Color.White * .2f,
                     Color.White,
                     Color.White * .5f,
-                    Color.White * .8f, new Rectangle(5, 5, 200, 50))).ShowAsDialog(); //<-- Shows Dialog
+                    Color.White * .8f, new Rectangle(20, 5, 270, 50)));
+                var x = await s.ShowAsDialog();
+                if (x.Value == true)
+                {
+                    try
+                    {
+                        var i = int.Parse(s.Components[1].RenderText);
+                        var h = int.Parse(s.Components[2].RenderText);
+                        Main.SourceLevel.LevelSize = new Point(i, h);
+                        Main.GameScene.SetFlooring(Main.SourceLevel);
+                    }
+                    catch(Exception e)
+                    {
+                        System.Windows.Forms.MessageBox.Show(e.Message + Environment.NewLine + 
+                            "Make sure to only input whole, positive numbers.", "Error");
+                    }
+                }
             }
 
             private void ShowFloorColorChangeDialog(Button Sender)
@@ -536,7 +608,7 @@ namespace Diner_Smash
                 var value = GameObject.Create("object", enumval, Content);
                 try
                 {
-                    value.Location = Main.GameCamera.DesiredPosition - (value.Size / new Point(2)).ToVector2();
+                    value.Location = Main.GameCamera.ActualPosition - (value.Size / new Point(2)).ToVector2();
                 }
                 catch (NullReferenceException e) { System.Windows.Forms.MessageBox.Show("That Object has not been implemented yet!"); }
                 Main.AddObject(value);
@@ -929,7 +1001,6 @@ namespace Diner_Smash
             public void Reformat(HorizontalLock LockItems = HorizontalLock.None)
             {
                 int heightPadding = -1, widthPadding = -1;
-                int widestComponent = -1;
                 Point _lastPoint = Point.Zero;
                 foreach (var c in Components)
                 {
@@ -948,14 +1019,10 @@ namespace Diner_Smash
                         var _temp = c.Font.Measure(c.RenderText).ToPoint();
                         c.Size = _temp;
                         _lastPoint.Y += _temp.Y;
-                        if (widestComponent < _temp.X + (c.STACKPANEL_Padding.X * 2))
-                            widestComponent = _temp.X + (c.STACKPANEL_Padding.X * 2);
                     }
                     else if (c.GetRender == Render.Texture2D)
                     {
                         _lastPoint.Y += c.Destination.Height;
-                        if (widestComponent < c.Destination.Width + (c.STACKPANEL_Padding.X * 2))
-                            widestComponent = c.Destination.Width + (c.STACKPANEL_Padding.X * 2);
                     }
                     if (c.Width == -1)
                         c.AutoSizeWidth = true;
@@ -1028,7 +1095,7 @@ namespace Diner_Smash
                 foreach (var c in Components)
                     c.Update(gameTime);
             }
-            catch { }
+            catch (InvalidOperationException e) { }
             if (IsNotificationOpen && _timeBasedNotification)
             {
                 _timeSinceOpened += gameTime.ElapsedGameTime;

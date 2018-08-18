@@ -71,7 +71,7 @@ namespace Diner_Smash
             (hostJoinPrompt.Components[2] as Button).OnClick += (Button sender) =>
             {
                 MultiplayerMode = 1;
-                Main.Objects.Clear();
+                Main.ClearObjects();
                 hostJoinPrompt.CloseDialog();
                 InitializeMultiplayer();                
             };
@@ -152,7 +152,7 @@ namespace Diner_Smash
             return Task.Run(() =>
             {
                 var IPsubmit = "";
-                var hostJoinPrompt = new StackPanel(Color.RoyalBlue * .25f, false);
+                var hostJoinPrompt = new StackPanel(Color.RoyalBlue * .5f, false);
                 hostJoinPrompt.CreateDialog("Enter the Host's IP Address", InterfaceComponent.HorizontalLock.Center, true,
                         new InterfaceComponent().CreateTextBox("", Color.Blue * .5f, Color.White,
                             Color.DeepSkyBlue * .75f, Color.DeepSkyBlue, new Rectangle(new Point(20, 10), new Point(300, 35))));                        
@@ -161,7 +161,6 @@ namespace Diner_Smash
                     IPsubmit = ((hostJoinPrompt.Components[1] as TextBox).RenderText);
                 }                
                 (hostJoinPrompt.Components[1] as TextBox).Accepted += Event;
-                hostJoinPrompt.AddToParent(Main.UILayer);
                 onError:
                 if (hostJoinPrompt.ShowAsDialog().Result.Value)
                     Event(null);

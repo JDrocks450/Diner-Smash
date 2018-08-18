@@ -21,6 +21,7 @@ namespace Diner_Smash
         public enum PlayerNameTable { Idle, Menu1, Dinner1, Dinner2 };
         [XmlIgnore]
         public static Point FrameSize;
+        public const float SCALE = .45f;
         public const int MAX_PLATES = 2;
         public static Color[] PLAYER_COLORS = new Color[] { Color.White, Color.LightPink, Color.PaleGreen, Color.Yellow };
 
@@ -36,7 +37,6 @@ namespace Diner_Smash
         }
 
         public int OwnerID { get; }
-
         private int _frame = 0;
         private bool _frameChanged;
         [NonSerialized]
@@ -72,6 +72,7 @@ namespace Diner_Smash
             PathFinder = new PathHelper(ref Main.Objects, 50, 100);
             DrawIndex = 0f;
             OwnerID = ClientID;
+            Scale = SCALE;
         }
 
         public bool PlaceObjectInHand(GameObject Object)
@@ -105,11 +106,7 @@ namespace Diner_Smash
                 if (e.PressedKeys.Contains(Keys.Right))
                     Frame++;
                 else if (e.PressedKeys.Contains(Keys.Left))
-                    Frame--;
-                if (e.PressedKeys.Contains(Keys.Up))
-                    Scale += .05;
-                else if (e.PressedKeys.Contains(Keys.Down))
-                    Scale -= .05;
+                    Frame--;                
                 _frameChanged = true;
             }
             if (e.MouseLeftClick && !Main.Objects.Where(x => x.IsMouseOver).Any())
@@ -127,16 +124,6 @@ namespace Diner_Smash
                 Frames[i] = Content.Load<Texture2D>("Entities/Player/" + Enum.GetNames(typeof(PlayerNameTable))[i]);
             Frame = 0;            
             base.Load(Content);
-        }
-
-        public override string[] ReturnDebugInfo()
-        {
-            var _array = base.ReturnDebugInfo();
-            var second = new string[] { $"Frame: {Frame+1}", $"Scale: {Scale * 100}%", $"TaskRunning: {TaskRunning}", $"Tasks: {Tasks.Count}" };
-            var array = new string[_array.Length + second.Length];
-            Array.Copy(_array, array, _array.Length);
-            Array.Copy(second, 0, array, _array.Length, second.Length);
-            return array;
         }
 
         public void RequestNavigation(Point Destination)
