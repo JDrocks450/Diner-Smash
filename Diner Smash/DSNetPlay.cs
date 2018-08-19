@@ -71,7 +71,7 @@ namespace Diner_Smash
             (hostJoinPrompt.Components[2] as Button).OnClick += (Button sender) =>
             {
                 MultiplayerMode = 1;
-                Main.ClearObjects();
+                Main.UnloadLevel();
                 hostJoinPrompt.CloseDialog();
                 InitializeMultiplayer();                
             };
@@ -198,11 +198,13 @@ namespace Diner_Smash
                         JoinIP = await PromptForIP();
                     if (JoinIP == IPAddress.None)
                     {
-                        Main.UpdateLevel(null);
+                        PromptHostJoin();
                         return;
                     }
                     else
+                    {                        
                         break;
+                    }
             }
             MultiplayerClient = new Client();
             #region Subscribe to events
@@ -222,6 +224,7 @@ namespace Diner_Smash
                 MultiplayerClient.RequestLevelChange(Level.Serialize());
             Ready = true;
             Main.UILayer.ShowNotification("Waiting for Host to Start Game...", Color.Red * .5f, Color.White);
+            return;
         }
 
         /// <summary>
@@ -283,6 +286,7 @@ namespace Diner_Smash
         {
             ChatMessages.Add($"{(ID == this.ID ? "You have" : $"Player: {ID} has")} joined the game.");
             var p = new Player("multiplayerCharacter", ID);
+            p.Location = new Vector2(100, 100);
             p.Load(Main.Manager);
             Main.Objects.Add(p);
             if (ID == MultiplayerClient.context.ID)

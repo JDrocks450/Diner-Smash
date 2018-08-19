@@ -69,6 +69,8 @@ namespace Diner_Smash
             {
                 l.LevelSize = new Point().Parse(e.Element("lSize").Value);
                 Main.GameScene.FloorMask = new Color(uint.Parse(e.Element("fColor").Value));
+                if (e.Element("Lighting") != null)
+                    Lighting.LoadLightingSettings(e.Element("Lighting"));
                 var objs = new List<GameObject>();
                 int id = 0;
                 foreach (var n in e.Element("Objects").Elements())
@@ -77,6 +79,7 @@ namespace Diner_Smash
                     objs[id].ID = id;
                     id++;
                 }
+                Main.SourceLevel = l;
                 l.LoadedObjects = objs;
             }
             catch (Exception en)
@@ -121,6 +124,9 @@ namespace Diner_Smash
             e.Add(new XElement("lSize", LevelSize)); //Level Size
             XElement o;
             e.Add(new XElement("fColor", Main.GameScene.FloorMask.PackedValue));
+            var lightE = new XElement("Lighting");
+            Lighting.SaveLightingSettings(ref lightE);
+            e.Add(lightE);
             e.Add(o = new XElement("Objects"));
             foreach (var obj in Main.Objects)
             {

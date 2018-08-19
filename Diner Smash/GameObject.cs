@@ -47,6 +47,7 @@ namespace Diner_Smash
                 Customizer = new UserInterface.ObjectCustomizer(this);
                 Customizer.Availablity = AvailablityStates.Invisible;
             }
+            ShadowHandler = new Lighting();
         }
 
         public virtual void Init(Vector2 StartPosition, Point Size, Texture2D texture, float DrawIndex)
@@ -126,6 +127,9 @@ namespace Diner_Smash
         [NonSerialized]
         public SpriteEffects Effects;
 
+        public bool HasShadow = true;
+        public Lighting ShadowHandler;
+
         /// <summary>
         /// Sets the layer depth to the reserved flat objects value
         /// </summary>
@@ -198,7 +202,9 @@ namespace Diner_Smash
                     Width = Texture.Width;
                 if (Height == 0)
                     Height = Texture.Height;
-            }
+                if (HasShadow)
+                    ShadowHandler.GenerateShadow(Texture);
+            }            
         }
     }
 
@@ -295,12 +301,12 @@ namespace Diner_Smash
                     Main.ObjectDragging = null;
                 }
             }
-            if (Customizer != null)
+            if (Customizer != null && Main.PlacementMode)
                 if (IsMouseOver)
                     Customizer.Availablity = AvailablityStates.Enabled;
                 else
                     Customizer.Availablity = AvailablityStates.Invisible;
-            //Correct Object Position
+            //Correct Object Position        
             {
                 if (BoundingRectangle.Right > Main.SourceLevel.LevelSize.X)
                     X = Main.SourceLevel.LevelSize.X - Width;
@@ -308,8 +314,8 @@ namespace Diner_Smash
                     X = 0;
                 if (BoundingRectangle.Bottom > Main.SourceLevel.LevelSize.Y)
                     X = Main.SourceLevel.LevelSize.Y - Height;
-                if (Y < 0)
-                    Y = 0;
+                if (Y < -BoundingRectangle.Center.Y)
+                    Y = -BoundingRectangle.Center.Y;
             }
             if (Interacting)
                 DEBUG_Highlight = Color.Orange;
@@ -445,7 +451,12 @@ namespace Diner_Smash
             if (Rotation != 0f && orig == new Vector2(-1, -1))
                 orig = new Vector2(Width / 2, Height / 2);
             if (Availablity == AvailablityStates.Enabled && Texture != null)
-                spriteBatch.Draw(Texture, BoundingRectangle, null, Mask, Rotation, orig, Effects, LayerDepth);
+            {
+                spriteBatch.Draw(Texture, BoundingRectangle, null,
+                    Color.Lerp(Mask, Lighting.LightColor, Lighting.LightIntensity),
+                    Rotation, orig, Effects, LayerDepth);
+                ShadowHandler.CastShadow(spriteBatch, Location, Scale);
+            }
             if (Main.IsDebugMode)
             {
                 if (IsClickable)

@@ -463,6 +463,8 @@ namespace Diner_Smash
             private InterfaceComponent _title;
             public override void Update(GameTime gameTime)
             {
+                if (Availablity != ObjectContext.AvailablityStates.Enabled)
+                    return;
                 List<InterfaceComponent> addCom = new List<InterfaceComponent>();
                 int i = 1;
                 if (_title.Parent is null)
@@ -510,7 +512,7 @@ namespace Diner_Smash
 
             public ObjectSpawnList()
             {
-                int newButtons = 3; //the amount of extra components to add
+                int newButtons = 4; //the amount of extra components to add
                 var objsList = new InterfaceComponent[Enum.GetNames(typeof(GameObject.ObjectNameTable)).Count() + newButtons];
                 objsList[0] = new InterfaceComponent().CreateText("Add Object to Room", Color.White, new Point(15));
                 objsList[1] = new InterfaceComponent().CreateButton("Change Floor Color",
@@ -518,15 +520,22 @@ namespace Diner_Smash
                     Color.White,
                     Main.GameScene.FloorMask * .5f,
                     Main.GameScene.FloorMask * .60f,
-                    new Rectangle(new Point(10, 10), new Point(175, 50)));
+                    new Rectangle(new Point(10, 5), new Point(175, 50)));
                 (objsList[1] as Button).OnClick += ShowFloorColorChangeDialog;
                 objsList[2] = new InterfaceComponent().CreateButton("Change Room Size",
                     Color.Black * .3f,
                     Color.White,
                     Color.White * .5f,
                     Color.DeepSkyBlue,
+                    new Rectangle(new Point(10, 5), new Point(175, 50)));
+                (objsList[2] as Button).OnClick += ShowChangeFloorSizeDialog;
+                objsList[3] = new InterfaceComponent().CreateButton("Change Lighting Color",
+                    Lighting.LightColor * .25f,
+                    Color.White,
+                    Lighting.LightColor * .5f,
+                    Lighting.LightColor * .60f,
                     new Rectangle(new Point(10, 10), new Point(175, 50)));
-                (objsList[2] as Button).OnClick += ShowChangeFloorSizeDialog; ;
+                (objsList[3] as Button).OnClick += ShowLightingColorChangeDialog;
                 foreach (var s in Enum.GetNames(typeof(GameObject.ObjectNameTable)).Where(x => x != "None"))
                 {
                     objsList[newButtons] = new InterfaceComponent().CreateButton(s,
@@ -543,6 +552,23 @@ namespace Diner_Smash
                 HLock = HorizontalLock.Right;
                 Main.GlobalInput.UserInput += GlobalInput_UserInput;
                 AddToParent(Main.UILayer);
+            }
+
+            private void ShowLightingColorChangeDialog(Button sender)
+            {
+                using (System.Windows.Forms.ColorDialog d = new System.Windows.Forms.ColorDialog())
+                {
+                    d.Color = Main.GameScene.FloorMask.ToDrawingColor();
+                    d.AnyColor = true;
+                    d.AllowFullOpen = true;
+                    d.FullOpen = true;
+                    d.SolidColorOnly = false;
+                    if (d.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                        Lighting.LightColor = d.Color.ToXNAColor();
+                }
+                sender.Background = Lighting.LightColor * .25f;
+                sender.High = Lighting.LightColor * .5f;
+                sender.Click = Lighting.LightColor * .60f;
             }
 
             private async void ShowChangeFloorSizeDialog(Button sender)

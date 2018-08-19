@@ -132,15 +132,16 @@ namespace Diner_Smash
 
         public static void UpdateLevel(LevelSave Save)
         {
-            ClearObjects();           
+            UnloadLevel();           
             Player = null;            
             if (Save is null)
                 Save = LevelSave.Load(Manager);
             GameScene.Setup(Manager, Save);
+            Main.SourceLevel = Save;
             FinishLoad();
         }
 
-        static bool _loaded = false;
+        static bool Loaded { get => Main.SourceLevel != null; }
         /// <summary>
         /// Ran after level save is loaded.
         /// </summary>
@@ -150,7 +151,6 @@ namespace Diner_Smash
                 obj.Load(Manager);
             if (!Multiplayer.Ready)
                 Multiplayer.PromptHostJoin();
-            _loaded = true;
         }
 
         /// <summary>
@@ -167,7 +167,7 @@ namespace Diner_Smash
             _waitingObjects.Enqueue(Object);
         }
 
-        public static void ClearObjects()
+        public static void UnloadLevel()
         {
             var l = Objects.ToArray();
             foreach(var i in l)
@@ -175,6 +175,7 @@ namespace Diner_Smash
                 i.Dispose();
             }
             Objects.Clear();
+            SourceLevel = null;
         }
 
         /// <summary>
@@ -201,7 +202,7 @@ namespace Diner_Smash
                 GameplayPaused = true;
             else
                 GameplayPaused = false;            
-            if (_loaded && !GameplayPaused)
+            if (Loaded && !GameplayPaused)
             {
                 try //If this collection throws an exception it's not a big deal.
                 {
@@ -249,7 +250,11 @@ namespace Diner_Smash
             if (e.PressedKeys.Contains(Keys.F1))
                 IsDebugMode = !IsDebugMode;
             if (e.PressedKeys.Contains(Keys.F3))
+            {
+                Lighting.LightColor = Color.Orange;
+                Lighting.LightIntensity += .05f;
                 DEBUG_HighlightingMode = !DEBUG_HighlightingMode;
+            }
         }
 
         UserInterface.StackPanel DEBUGInformationStackPanel = new UserInterface.StackPanel();
@@ -273,18 +278,14 @@ namespace Diner_Smash
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.CornflowerBlue);
-            if (_loaded)
+            if (Loaded)
             {
-                spriteBatch.Begin(SpriteSortMode.FrontToBack, null, null, null, null, null, GameCamera.Transform());
-                GameScene.Draw(spriteBatch);                
+                spriteBatch.Begin(SpriteSortMode.Deferred, null, null, null, null, null, GameCamera.Transform());
+                GameScene.Draw(spriteBatch);
                 if (Main.IsDebugMode)
                     Player?.PathFinder.DEBUG_DrawMap(spriteBatch);
-                try
-                {
-                    foreach (var obj in Objects)
-                        obj.Draw(spriteBatch);
-                }
-                catch (Exception e) { throw e; }
+                foreach (var obj in Objects)
+                    obj.Draw(spriteBatch);
                 spriteBatch.End();
             }
             spriteBatch.Begin(SpriteSortMode.Immediate);

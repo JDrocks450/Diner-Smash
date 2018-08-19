@@ -11,6 +11,15 @@ namespace Diner_Smash
 {
     public static class Extentions
     {
+        public static Vector2 ToVector2(this string pos)
+        {
+            int startInd = pos.IndexOf("X:") + 2;
+            float aXPosition = float.Parse(pos.Substring(startInd, pos.IndexOf(" Y") - startInd));
+            startInd = pos.IndexOf("Y:") + 2;
+            float aYPosition = float.Parse(pos.Substring(startInd, pos.IndexOf("}") - startInd));           
+            return new Vector2(aXPosition, aYPosition);
+        }
+
         public static System.Drawing.Color ToDrawingColor(this Color c)
         {
             return System.Drawing.Color.FromArgb(c.A, c.R, c.G, c.B);

@@ -223,10 +223,10 @@ namespace Diner_Smash
                         goto escape;
                     }
                     var next = CurrentRoute[_pathNodeIndex++];
-                    _from = new Point(Current.Location.X - (Width/2), Current.Location.Y - Height);
+                    _from = new Point(Current.Location.X - (BoundingRectangle.Width/2), Current.Location.Y - BoundingRectangle.Height);
                     Current = next;
                 }
-                var _next = new Point(Current.Location.X - (Width / 2), Current.Location.Y - Height);
+                var _next = new Point(Current.Location.X - (BoundingRectangle.Width / 2), Current.Location.Y - BoundingRectangle.Height);
                 _currentPercent += .05f;
                 Location = Vector2.SmoothStep(_from.ToVector2(), _next.ToVector2(), _currentPercent);
                 if (_currentPercent >= 1f)

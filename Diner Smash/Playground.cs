@@ -34,8 +34,7 @@ namespace Diner_Smash
             Floors.Clear();
             Main.Objects = Source.LoadedObjects;
             Floor = Content.Load<Texture2D>("Floor");
-            SetFlooring(Source);
-            Main.SourceLevel = Source;
+            SetFlooring(Source);            
         }
 
         public void SetFlooring(LevelSave Source)
@@ -63,7 +62,7 @@ namespace Diner_Smash
             try
             {
                 foreach (var f in Floors)
-                    batch.Draw(Floor, f.ToVector2(), null, FloorMask, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
+                    batch.Draw(Floor, f.ToVector2(), null, Color.Lerp(FloorMask,Lighting.LightColor, Lighting.LightIntensity), 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
             }
             catch { }
         }        
