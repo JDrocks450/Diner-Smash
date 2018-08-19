@@ -93,7 +93,6 @@ namespace Diner_Smash
 
         public Table(string Name, int ID) : base(Name, ObjectNameTable.Table)
         {
-            DrawIndex = .5f;
             TableID = ID;           
         }
 
@@ -341,7 +340,8 @@ namespace Diner_Smash
 
         public override void Draw(SpriteBatch spriteBatch)
         {            
-            spriteBatch.Draw(Tableseat, BoundingRectangle, BonusColor);
+            //Seats need to be drawn underneathe tabletop at LayerDepth
+            spriteBatch.Draw(Tableseat, BoundingRectangle, null, BonusColor, Rotation, RotateOrigin, Effects, LayerDepth - .05f);
             base.Draw(spriteBatch);               
             foreach (var i in TabletopItems.Where(x => x != null))            
                 i.Draw(spriteBatch);                             

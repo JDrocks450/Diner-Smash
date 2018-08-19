@@ -556,15 +556,15 @@ namespace Diner_Smash
                 new InterfaceComponent().CreateTextBox(Main.SourceLevel.LevelSize.Y.ToString(), Color.White * .2f,
                     Color.White,
                     Color.White * .5f,
-                    Color.White * .8f, new Rectangle(20, 5, 270, 50)));
+                    Color.White * .8f, new Rectangle(20, 5, 270, 50)));                
                 var x = await s.ShowAsDialog();
                 if (x.Value == true)
                 {
                     try
                     {
-                        var i = int.Parse(s.Components[1].RenderText);
-                        var h = int.Parse(s.Components[2].RenderText);
-                        Main.SourceLevel.LevelSize = new Point(i, h);
+                        var i = uint.Parse(s.Components[1].RenderText);
+                        var h = uint.Parse(s.Components[2].RenderText);
+                        Main.SourceLevel.LevelSize = new Point((int)i, (int)h);
                         Main.GameScene.SetFlooring(Main.SourceLevel);
                     }
                     catch(Exception e)

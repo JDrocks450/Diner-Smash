@@ -63,7 +63,7 @@ namespace Diner_Smash
             try
             {
                 foreach (var f in Floors)
-                    batch.Draw(Floor, f.ToVector2(), null, FloorMask, 0f, Vector2.Zero, 1f, SpriteEffects.None, 1f);
+                    batch.Draw(Floor, f.ToVector2(), null, FloorMask, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
             }
             catch { }
         }        

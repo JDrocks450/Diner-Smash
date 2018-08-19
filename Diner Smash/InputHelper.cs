@@ -82,7 +82,7 @@ namespace Diner_Smash
                 }            
             if (results.Any())
             {
-                var result = results.Where(x => x.DrawIndex == results.Select(d => d.DrawIndex).Max()).Last(); //Drawing is currently IMMEDIATE meaning the last object is on-top
+                var result = results.Where(x => x.LayerDepth == results.Select(d => d.LayerDepth).Max()).Last(); //Drawing is currently IMMEDIATE meaning the last object is on-top
                 foreach (var r in results.Where(x => x != result))
                 {
                     r.IsMouseOver = false;

@@ -25,6 +25,7 @@ namespace Diner_Smash
         public WelcomeMat(string Name) : base(Name, ObjectNameTable.WelcomeMat)
         {
             IsInteractable = false;
+            IsObjectFlat = true;
         }
 
         public override void Load(ContentManager Content)

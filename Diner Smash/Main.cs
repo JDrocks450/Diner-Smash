@@ -275,7 +275,7 @@ namespace Diner_Smash
             GraphicsDevice.Clear(Color.CornflowerBlue);
             if (_loaded)
             {
-                spriteBatch.Begin(SpriteSortMode.Deferred, null, null, null, null, null, GameCamera.Transform());
+                spriteBatch.Begin(SpriteSortMode.FrontToBack, null, null, null, null, null, GameCamera.Transform());
                 GameScene.Draw(spriteBatch);                
                 if (Main.IsDebugMode)
                     Player?.PathFinder.DEBUG_DrawMap(spriteBatch);

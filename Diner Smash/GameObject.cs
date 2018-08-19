@@ -16,13 +16,23 @@ using static Diner_Smash.PathHelper;
 
 namespace Diner_Smash
 {        
-    [System.AttributeUsage(AttributeTargets.Field)]
+    [System.AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class DinerSmashObjectOption : System.Attribute
     {
 
-    }
+    }    
 
-    [Serializable]
+    /// <summary>
+    /// Values specifying a Zindex that is within the reserved value range.
+    /// DIVIDE EACH BY 100 TO GET FLOAT VALUE
+    /// </summary>
+    public enum ReservedZIndicies : short
+    {
+        ReservedValueRangeEnd = 10,
+        Shadows = 5,
+        FlatObjects = 4,
+    }
+    
     /// <summary>
     /// Holds the data for an object or a part of an object.
     /// </summary>
@@ -47,10 +57,18 @@ namespace Diner_Smash
             Texture = texture;
         }
 
-        //public static float GetDrawIndex(Point Location)
-        //{
-
-        //}        
+        public virtual float GetDrawIndex()
+        {
+            if (IsObjectFlat)
+            {
+                return ((float)ReservedZIndicies.FlatObjects / 100);
+            }
+            int scrHeight = Main.SourceLevel.LevelSize.Y; 
+            var index = Location.Y / scrHeight;
+            if (index < ((float)ReservedZIndicies.ReservedValueRangeEnd/100))
+                index = ((float)ReservedZIndicies.ReservedValueRangeEnd / 100);
+            return index;
+        }        
 
         public bool IsMouseOver
         {
@@ -109,11 +127,17 @@ namespace Diner_Smash
         public SpriteEffects Effects;
 
         /// <summary>
+        /// Sets the layer depth to the reserved flat objects value
+        /// </summary>
+        public bool IsObjectFlat { get; set; } = false;
+        [DinerSmashObjectOption]
+        /// <summary>
         /// 0 --> 1; Closer to 1 it is, the farther back it is drawn.
         /// </summary>
-        public float DrawIndex
+        public float LayerDepth
         {
-            get; set;
+            //Should be safe since GameObject.Draw requires a texture before getting DrawIndex            
+            get => GetDrawIndex();
         }
 
         public Vector2 Location
@@ -276,10 +300,17 @@ namespace Diner_Smash
                     Customizer.Availablity = AvailablityStates.Enabled;
                 else
                     Customizer.Availablity = AvailablityStates.Invisible;
-            if (BoundingRectangle.Right > Main.SourceLevel.LevelSize.X)
-                X = Main.SourceLevel.LevelSize.X - Width;
-            if (X < 0)
-                X = 0;
+            //Correct Object Position
+            {
+                if (BoundingRectangle.Right > Main.SourceLevel.LevelSize.X)
+                    X = Main.SourceLevel.LevelSize.X - Width;
+                if (X < 0)
+                    X = 0;
+                if (BoundingRectangle.Bottom > Main.SourceLevel.LevelSize.Y)
+                    X = Main.SourceLevel.LevelSize.Y - Height;
+                if (Y < 0)
+                    Y = 0;
+            }
             if (Interacting)
                 DEBUG_Highlight = Color.Orange;
             else if (Main.DEBUG_HighlightingMode)
@@ -316,6 +347,10 @@ namespace Diner_Smash
         {
             var l = new List<string>();
             foreach(var i in GetType().GetFields().Where(x => x.GetCustomAttributes(typeof(DinerSmashObjectOption), true).Any()))
+            {
+                l.Add($"{i.Name} = {i.GetValue(this)}");
+            }
+            foreach (var i in GetType().GetProperties().Where(x => x.GetCustomAttributes(typeof(DinerSmashObjectOption), true).Any()))
             {
                 l.Add($"{i.Name} = {i.GetValue(this)}");
             }
@@ -410,7 +445,7 @@ namespace Diner_Smash
             if (Rotation != 0f && orig == new Vector2(-1, -1))
                 orig = new Vector2(Width / 2, Height / 2);
             if (Availablity == AvailablityStates.Enabled && Texture != null)
-                spriteBatch.Draw(Texture, BoundingRectangle, null, Mask, Rotation, orig, Effects, DrawIndex);
+                spriteBatch.Draw(Texture, BoundingRectangle, null, Mask, Rotation, orig, Effects, LayerDepth);
             if (Main.IsDebugMode)
             {
                 if (IsClickable)

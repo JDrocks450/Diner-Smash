@@ -70,9 +70,23 @@ namespace Diner_Smash
             IsRoutable = false;
             IsInteractable = false;
             PathFinder = new PathHelper(ref Main.Objects, 50, 100);
-            DrawIndex = 0f;
             OwnerID = ClientID;
             Scale = SCALE;
+        }
+
+        /// <summary>
+        /// Same functionality except ZIndex is calculated based off the center of the character.
+        /// </summary>
+        /// <returns></returns>
+        public override float GetDrawIndex()
+        {            
+            int scrHeight = Main.SourceLevel.LevelSize.Y;
+            var index = (float)BoundingRectangle.Center.Y / scrHeight;
+            if (index < 0)
+                index *= -1;
+            if (index < (float)ReservedZIndicies.ReservedValueRangeEnd / 100)
+                index = (float)ReservedZIndicies.ReservedValueRangeEnd / 100;
+            return index;
         }
 
         public bool PlaceObjectInHand(GameObject Object)
