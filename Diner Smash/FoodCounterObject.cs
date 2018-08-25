@@ -11,17 +11,28 @@ namespace Diner_Smash
 {
     public class FoodCounterObject : GameObject
     {
+        public static FoodCounterObject LevelDefault
+        {
+            get => (FoodCounterObject)Main.Objects.Where(x => x is FoodCounterObject).First() ?? null;
+        }
+
         public delegate void OrderUpHandler(Food FoodOrder);
         public event OrderUpHandler OnOrderReady;
 
         public Queue<Menu> Orders = new Queue<Menu>();
         public Menu CurrentOrder;
+        public Queue<Food> ReadyOrders = new Queue<Food>(5);
 
         float prepTime { get => Properties.Gameplay.Default.Kitchen_FoodPrepareTime; }
 
         public FoodCounterObject(string Name) : base(Name, ObjectNameTable.FoodCounter)
         {
+            OnOrderReady += FoodCounterObject_OnOrderReady;
+        }
 
+        private void FoodCounterObject_OnOrderReady(Food FoodOrder)
+        {
+            ReadyOrders.Enqueue(FoodOrder);
         }
 
         public override void Load(ContentManager Content = null)
@@ -52,7 +63,18 @@ namespace Diner_Smash
         /// <param name="menu"></param>
         public void SubmitOrder(Menu menu)
         {
-            Orders.Enqueue(menu);
+            if (Orders.Count < 5)
+                Orders.Enqueue(menu);
+            else
+                System.Windows.Forms.MessageBox.Show("The Kitchen is backed up! Deliver some ready " +
+                    "orders first!", "Can't do that...");
+        }
+
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            base.Draw(spriteBatch);
+            foreach (var f in ReadyOrders)
+                f.Draw(spriteBatch);
         }
     }
 }

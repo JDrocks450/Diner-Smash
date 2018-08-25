@@ -631,7 +631,7 @@ namespace Diner_Smash
             private void ObjectSpawnList_OnClick(Button sender)
             {
                 var enumval = (ObjectContext.ObjectNameTable)sender.Tag;
-                var value = GameObject.Create("object", enumval, Content);
+                var value = GameObject.Create("object", enumval);
                 try
                 {
                     value.Location = Main.GameCamera.ActualPosition - (value.Size / new Point(2)).ToVector2();

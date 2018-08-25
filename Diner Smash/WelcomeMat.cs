@@ -42,7 +42,7 @@ namespace Diner_Smash
             {
                 if (People.Count == 5)
                     goto skip;
-                var p = (Person)Create("debugPerson", ObjectNameTable.Person, Content);
+                var p = (Person)Create("debugPerson", ObjectNameTable.Person);
                 p.ParentSpawner = this;
                 Main.AddObject(p);
                 People.Add(p);

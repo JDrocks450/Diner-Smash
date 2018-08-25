@@ -289,8 +289,6 @@ namespace Diner_Smash
             p.Location = new Vector2(100, 100);
             p.Load(Main.Manager);
             Main.Objects.Add(p);
-            if (ID == MultiplayerClient.context.ID)
-                Main.Player = p;
 
         }
 

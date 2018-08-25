@@ -18,7 +18,15 @@ namespace Diner_Smash
     [Serializable]
     public class Player : GameObject
     {
-        public enum PlayerNameTable { Idle, Menu1, Dinner1, Dinner2 };
+        /// <summary>
+        /// Gets the player that this client has control over.
+        /// </summary>
+        public static Player ControlledCharacter
+        {
+            get => (Player)Main.Objects.Find(x => x is Player && ((Player)x).OwnerID == Main.Multiplayer.ID);
+        }
+
+        public enum PlayerNameTable { Idle, HoldLeft, HoldBoth };
         [XmlIgnore]
         public static Point FrameSize;
         public const float SCALE = .45f;
@@ -45,7 +53,7 @@ namespace Diner_Smash
         [NonSerialized]
         public int Plates = 0;
 
-        public GameObject[] Hands = new GameObject[2];
+        public Dictionary<Point, GameObject> Hands { get => PlacementSlots; }
 
         public Point TranslateLocationtoNavNodeLocation()
         {
@@ -72,6 +80,8 @@ namespace Diner_Smash
             PathFinder = new PathHelper(ref Main.Objects, 50, 100);
             OwnerID = ClientID;
             Scale = SCALE;
+            PlacementSlots.Add(new Point(53, 240), null);
+            PlacementSlots.Add(new Point(405, 247), null);
         }
 
         /// <summary>
@@ -91,20 +101,14 @@ namespace Diner_Smash
 
         public bool PlaceObjectInHand(GameObject Object)
         {
-            if (Hands[0] == null)
-                Hands[0] = Object;
-            else if (Hands[1] == null)
-                Hands[1] = Object;
-            else
-                return false;              
-            return true;
+            return PlaceObjectInSlot(Object);
         }
 
         public bool RemoveObjectFromHand(GameObject Object)
         {
             try
             {
-                Hands[Array.IndexOf(Hands, Object)] = null;
+                RemoveObjectFromSlot(Object);
             }
             catch
             {
@@ -126,6 +130,8 @@ namespace Diner_Smash
             if (e.MouseLeftClick && !Main.Objects.Where(x => x.IsMouseOver).Any())
             {                
                 var p = Main.MousePosition.ToPoint();
+                if (Tasks is null)
+                    Tasks = new List<Task>();
                 Tasks.Add(new Task(() => RequestNavigation(p)));
             }
         }
@@ -200,17 +206,7 @@ namespace Diner_Smash
                 Mask = PLAYER_COLORS[OwnerID - 1];
             else
                 Mask = Color.Green;
-            if (Hands[1] == null && Hands[0] != null)
-            {
-                if (Hands[0].Identity == ObjectNameTable.Food)
-                    Frame = 2;
-                else if (Hands[0].Identity == ObjectNameTable.Menu)
-                    Frame = 1;
-                else
-                    Frame = 0;
-            }
-            else
-                Frame = 0;
+            Frame = Hands.Where(x => x.Value != null).Count();
             // PATH FINDING HERE!!
             if (Current != null)
             {
@@ -241,7 +237,7 @@ namespace Diner_Smash
             {
                 Texture = Frames[Frame];
                 FrameSize = new Point(Texture.Width, Texture.Height);
-                base.Load();
+                Size = FrameSize;                
                 _frameChanged = false;
             }
             base.Update(gameTime);

@@ -11,11 +11,16 @@ namespace Diner_Smash
 {
     public class POSObject : GameObject
     {
+        public static POSObject LevelDefault
+        {
+            get => (POSObject)Main.Objects.Where(x => x is POSObject)?.First() ?? null;
+        }
+
         public override Point InteractionPoint
         {
             get
             {
-                return new Point(BoundingRectangle.Center.X, BoundingRectangle.Bottom + Main.Player?.PathFinder.Height ?? -1);
+                return new Point(BoundingRectangle.Center.X, BoundingRectangle.Bottom + Player.ControlledCharacter?.PathFinder.Height ?? -1);
             }
         }
 
@@ -39,17 +44,22 @@ namespace Diner_Smash
                 Interacting = false;
                 return false;
             }
-            var menu = (Menu)Focus.Hands.Where(x => x is Menu).First();
+            var query = Focus.Hands.Where(x => x.Value is Menu);
+            if (!query.Any())
+                return false;
+            var menu = (Menu)query.First().Value;
             Focus.RemoveObjectFromHand(menu);
-            SubmitOrder(Focus, menu);
+            SubmitOrder(menu);
             Interacting = false;
             return true;
         }
 
-        public void SubmitOrder(Player Focus, Menu Order)
+        public bool SubmitOrder(Menu Order)
         {
-            //Before Kitchen is implemented, just give the player the food.
-            Focus.PlaceObjectInHand(new Food(Order.TableID));
+            if (FoodCounterObject.LevelDefault is null)
+                return false;
+            FoodCounterObject.LevelDefault.SubmitOrder(Order);
+            return true;
         }
     }
 }

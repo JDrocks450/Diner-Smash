@@ -35,7 +35,6 @@ namespace Diner_Smash
         public static DSNetPlay Multiplayer;
         public static List<GameObject> Objects = new List<GameObject>();
         static Queue<GameObject> _waitingObjects = new Queue<GameObject>();
-        public static Player Player;
         public static InputHelper GlobalInput;
         public static GameObject ObjectDragging = null;
         public bool GameplayPaused;
@@ -132,8 +131,8 @@ namespace Diner_Smash
 
         public static void UpdateLevel(LevelSave Save)
         {
-            UnloadLevel();           
-            Player = null;            
+            UnloadLevel();
+            Player.ControlledCharacter?.Dispose();           
             if (Save is null)
                 Save = LevelSave.Load(Manager);
             GameScene.Setup(Manager, Save);
@@ -249,11 +248,12 @@ namespace Diner_Smash
                 PlacementMode = !PlacementMode;
             if (e.PressedKeys.Contains(Keys.F1))
                 IsDebugMode = !IsDebugMode;
-            if (e.PressedKeys.Contains(Keys.F3))
+            if (e.PressedKeys.Contains(Keys.F3))                            
+                DEBUG_HighlightingMode = !DEBUG_HighlightingMode;
+            if (e.PressedKeys.Contains(Keys.F4))
             {
                 Lighting.LightColor = Color.Orange;
                 Lighting.LightIntensity += .05f;
-                DEBUG_HighlightingMode = !DEBUG_HighlightingMode;
             }
         }
 
@@ -280,10 +280,10 @@ namespace Diner_Smash
             GraphicsDevice.Clear(Color.CornflowerBlue);
             if (Loaded)
             {
-                spriteBatch.Begin(SpriteSortMode.Deferred, null, null, null, null, null, GameCamera.Transform());
+                spriteBatch.Begin(SpriteSortMode.FrontToBack, null, null, null, null, null, GameCamera.Transform());
                 GameScene.Draw(spriteBatch);
                 if (Main.IsDebugMode)
-                    Player?.PathFinder.DEBUG_DrawMap(spriteBatch);
+                    Player.ControlledCharacter?.PathFinder.DEBUG_DrawMap(spriteBatch);
                 foreach (var obj in Objects)
                     obj.Draw(spriteBatch);
                 spriteBatch.End();

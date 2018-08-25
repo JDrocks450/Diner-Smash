@@ -64,6 +64,8 @@ namespace Diner_Smash
             {
                 return ((float)ReservedZIndicies.FlatObjects / 100);
             }
+            if (OVERRIDE_LAYER != -1)
+                return OVERRIDE_LAYER;
             int scrHeight = Main.SourceLevel.LevelSize.Y; 
             var index = Location.Y / scrHeight;
             if (index < ((float)ReservedZIndicies.ReservedValueRangeEnd/100))
@@ -79,6 +81,62 @@ namespace Diner_Smash
 
         public enum ObjectNameTable { None, Table, Food, WaitHere, WelcomeMat, Player, Person, Menu, POS, CardboardBoxDesk, FoodCounter };        
         public ObjectNameTable Identity;
+
+        public bool HasPlacementSlots { get => PlacementSlots?.Count > 0; }
+        /// <summary>
+        /// Do not add points scaled to the object, the engine scales them for you in GetPlacementSlot()
+        /// </summary>
+        public Dictionary<Point, GameObject> PlacementSlots = new Dictionary<Point, GameObject>();
+        /// <summary>
+        /// Provides the PlacementSlot that has been scaled and positioned properly.
+        /// </summary>
+        /// <param name="Index"></param>
+        /// <returns></returns>
+        public KeyValuePair<Point, GameObject> GetPlacementSlot(int Index)
+        {
+            var r = PlacementSlots.ElementAt(Index);
+            return new KeyValuePair<Point, GameObject>(Location.ToPoint() + 
+                (r.Key.ToVector2() * (float)Scale).ToPoint(), r.Value);
+        }
+        /// <summary>
+        /// Attempts to place an object in the slot but will fail if the slot isn't empty.
+        /// </summary>
+        /// <param name="SlotIndex"></param>
+        /// <param name="Object"></param>
+        /// <returns></returns>
+        public bool PlaceObjectInSlot(int SlotIndex, GameObject Object)
+        {
+            var r = PlacementSlots[PlacementSlots.ElementAt(SlotIndex).Key];
+            if (r is null)
+            {
+                r = Object;
+                return true;
+            }
+            return false;
+        }
+        /// <summary>
+        /// Attempts to place an object in the next available slot but will fail if no slots are open.
+        /// </summary>
+        /// <param name="SlotIndex"></param>
+        /// <param name="Object"></param>
+        /// <returns></returns>
+        public bool PlaceObjectInSlot(GameObject Object)
+        {
+            var query = PlacementSlots.Where(x => x.Value is null);
+            if (!query.Any())
+                return false;
+            var r = PlacementSlots[query.First().Key];
+            if (r is null)
+            {
+                PlacementSlots[query.First().Key] = Object;
+                return true;
+            }
+            return false;
+        }
+        public void RemoveObjectFromSlot(GameObject Object)
+        {
+            PlacementSlots[PlacementSlots.Where(x => x.Value == Object).First().Key] = null;
+        }
 
         public UserInterface.ObjectCustomizer Customizer;
         public bool IsDragging { get; internal set; } = false;
@@ -129,6 +187,7 @@ namespace Diner_Smash
 
         public bool HasShadow = true;
         public Lighting ShadowHandler;
+        private float OVERRIDE_LAYER = -1;
 
         /// <summary>
         /// Sets the layer depth to the reserved flat objects value
@@ -142,6 +201,7 @@ namespace Diner_Smash
         {
             //Should be safe since GameObject.Draw requires a texture before getting DrawIndex            
             get => GetDrawIndex();
+            set => OVERRIDE_LAYER = value;
         }
 
         public Vector2 Location
@@ -210,7 +270,7 @@ namespace Diner_Smash
 
     [Serializable]
     public class GameObject : ObjectContext
-    {
+    {        
         public delegate void OnClickHandler(ObjectContext Affected);
         public event OnClickHandler OnClick;
 
@@ -249,7 +309,7 @@ namespace Diner_Smash
                     Scale -= .05;
             }
             if (e.MouseLeftClick && IsMouseOver && !Main.PlacementMode)
-                Interact(Main.Player);
+                Interact(Player.ControlledCharacter);
         }               
 
         /// <summary>
@@ -317,11 +377,18 @@ namespace Diner_Smash
                 if (Y < -BoundingRectangle.Center.Y)
                     Y = -BoundingRectangle.Center.Y;
             }
-            if (Interacting)
-                DEBUG_Highlight = Color.Orange;
-            else if (Main.DEBUG_HighlightingMode)
-                DEBUG_Highlight = Color.Green;
-            else DEBUG_Highlight = Color.Transparent;
+            //Correct PlacementSlot Positions
+            {
+                for (int i = 0; i < PlacementSlots.Count; i++)
+                {
+                    var slot = GetPlacementSlot(i);
+                    if (slot.Value is null)
+                        continue;
+                    slot.Value.Location = new Vector2(
+                        slot.Key.X - slot.Value.Size.X / 2,
+                        slot.Key.Y - slot.Value.Size.Y);
+                }
+            }
         }
 
         /// <summary>
@@ -384,7 +451,7 @@ namespace Diner_Smash
             if (e.Element("GameObjectIdentity") == null)
                 throw new Exception("Incorrect Format!");
             var name = e.Element("Name").Value;
-            GameObject value = Create(name, (ObjectNameTable)Enum.Parse(typeof(ObjectNameTable), e.Element("GameObjectIdentity").Value), Content);          
+            GameObject value = Create(name, (ObjectNameTable)Enum.Parse(typeof(ObjectNameTable), e.Element("GameObjectIdentity").Value));         
             value.X = float.Parse(e.Element("X").Value);
             value.Y = float.Parse(e.Element("Y").Value);
             value.Effects = (SpriteEffects)int.Parse(e.Element("spriteEffect").Value);
@@ -398,8 +465,9 @@ namespace Diner_Smash
         /// <param name="Type">The type of object to spawn.</param>
         /// <param name="Content">The ContentManager to load the graphics.</param>
         /// <returns></returns>
-        public static GameObject Create(string Name, ObjectNameTable Type, ContentManager Content)
+        public static GameObject Create(string Name, ObjectNameTable Type)
         {
+            var Content = Main.Manager;
             var obj = new GameObject("");
             switch (Type)
             {
@@ -456,14 +524,31 @@ namespace Diner_Smash
                     Color.Lerp(Mask, Lighting.LightColor, Lighting.LightIntensity),
                     Rotation, orig, Effects, LayerDepth);
                 ShadowHandler.CastShadow(spriteBatch, Location, Scale);
+                if (HasPlacementSlots)
+                    for (int i = 0; i < PlacementSlots.Count; i++)
+                    {
+                        var o = GetPlacementSlot(i).Value;
+                        if (o != null)
+                        {
+                            o.LayerDepth = LayerDepth + .01f;
+                            o.Rotation = Rotation;
+                            o.Draw(spriteBatch);
+                        }
+                    }
             }
             if (Main.IsDebugMode)
             {
-                if (IsClickable)
-                {
+                if (IsClickable)                
                     spriteBatch.Draw(Main.BaseTexture, Location + ScaledCollisionMousePosition, null, IsMouseOver ? Color.Green : Color.Red,0f, Vector2.Zero, 10, SpriteEffects.None, 1);
-                }
-                spriteBatch.Draw(Main.BaseTexture, BoundingRectangle, DEBUG_Highlight * .5f);
+                if (HasPlacementSlots)
+                    for (int i = 0; i < PlacementSlots.Count; i++)
+                    {
+                        var s = GetPlacementSlot(i);
+                        spriteBatch.Draw(Main.BaseTexture, s.Key.ToVector2(), null, s.Value != null ? Color.DeepSkyBlue : Color.Blue, 0f, Vector2.Zero, 10, SpriteEffects.None, 1);
+                    }
+                if (Main.DEBUG_HighlightingMode)
+                    DEBUG_Highlight = Color.Green;
+                spriteBatch.Draw(Main.BaseTexture, BoundingRectangle, null, DEBUG_Highlight * .5f, 0f, Vector2.Zero, Effects, 1);
             }
         }
     }

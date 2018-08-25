@@ -80,7 +80,7 @@ namespace Diner_Smash
         {
             get
             {
-                return new Point(BoundingRectangle.Center.X, BoundingRectangle.Bottom + Main.Player.PathFinder.Height);
+                return new Point(BoundingRectangle.Center.X, BoundingRectangle.Bottom + Player.ControlledCharacter.PathFinder.Height);
             }
         }
 
@@ -202,7 +202,7 @@ namespace Diner_Smash
                     loc.X -= incW / 3;
                     rotation = MathHelper.ToRadians(-90);
                 }
-                TabletopItems[i] = GameObject.Create("tableSpawn", identity, Main.Manager);
+                TabletopItems[i] = GameObject.Create("tableSpawn", identity);
                 TabletopItems[i].Location = loc;
                 if (identity == ObjectNameTable.Menu)
                     (TabletopItems[i] as Menu).TableID = TableID;
@@ -220,7 +220,7 @@ namespace Diner_Smash
                 p.ParentSpawner = null;
                 p.Draggable = false;
             }
-            Main.Multiplayer.PersonSeatRequest(Main.Player, people[0], ID, Array.IndexOf(OccupiedSeats, true));
+            Main.Multiplayer.PersonSeatRequest(Player.ControlledCharacter, people[0], ID, Array.IndexOf(OccupiedSeats, true));
         }
 
         /// <summary>
@@ -262,7 +262,10 @@ namespace Diner_Smash
                 case States.F_Waiting:
                     if (Focus.Hands.Where(x => x is Food).Any())
                     {
-                        var food = (Food)Focus.Hands.Where(x => x is Food).First();
+                        var query = Focus.Hands.Where(x => x is Food);
+                        if (!query.Any())
+                            return false;
+                        var food = (Food)query.First().Value;
                         if (food.TableID == TableID) //Served the right table
                         {
                             Focus.RemoveObjectFromHand(food);
@@ -355,28 +358,27 @@ namespace Diner_Smash
             get;
             set;
         }
-        public Menu(int TableID, string Name = "Default Menu") : base(Name, ObjectNameTable.Menu)
+        public Menu(int TableID, string Name = "Default Menu", ObjectNameTable Type = ObjectNameTable.Menu) : base(Name,Type)
         {
             this.TableID = TableID;
             Scale = .60f;
         }
         public override void Load(ContentManager Content)
         {
-            Texture = Content.Load<Texture2D>("Objects/Table/PART_Menu");
+            if (Texture == null)
+                Texture = Content.Load<Texture2D>("Objects/Table/PART_Menu");
             base.Load(Content);
+        }
+        public virtual bool GiveMeToPlayer()
+        {
+            return Player.ControlledCharacter.PlaceObjectInHand(this);           
         }
     }
 
-    public class Food : GameObject
+    public class Food : Menu
     {
-        public int TableID
-        {
-            get;
-            private set;
-        }
-        public Food(int TableID, string Name = "Default Food Item") : base(Name, ObjectNameTable.Food)
-        {
-            this.TableID = TableID;
+        public Food(int TableID, string Name = "Default Food Item") : base(TableID, Name, ObjectNameTable.Food)
+        {            
             Scale = .60f;
         }
         public override void Load(ContentManager Content)
