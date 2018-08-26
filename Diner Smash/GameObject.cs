@@ -84,7 +84,7 @@ namespace Diner_Smash
 
         public bool HasPlacementSlots { get => PlacementSlots?.Count > 0; }
         /// <summary>
-        /// Do not add points scaled to the object, the engine scales them for you in GetPlacementSlot()
+        /// Represents positions relative to the unscaled object to put objects above.
         /// </summary>
         public Dictionary<Point, GameObject> PlacementSlots = new Dictionary<Point, GameObject>();
         /// <summary>
@@ -442,7 +442,8 @@ namespace Diner_Smash
             e.Add(new XElement("Name", Name),
                 new XElement("X", X),
                 new XElement("Y", Y),
-                new XElement("spriteEffect", (int)Effects));
+                new XElement("spriteEffect", (int)Effects),
+                new XElement("Scale", Scale));
         }
 
         public virtual GameObject XmlDeserialize(XElement ReadFrom, ContentManager Content)
@@ -454,6 +455,7 @@ namespace Diner_Smash
             GameObject value = Create(name, (ObjectNameTable)Enum.Parse(typeof(ObjectNameTable), e.Element("GameObjectIdentity").Value));         
             value.X = float.Parse(e.Element("X").Value);
             value.Y = float.Parse(e.Element("Y").Value);
+            value.Scale = float.Parse(e.Element("Scale").Value);
             value.Effects = (SpriteEffects)int.Parse(e.Element("spriteEffect").Value);
             return value;
         }

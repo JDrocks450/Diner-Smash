@@ -1,16 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
-using System.Xml.Serialization;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Xml.Serialization;
 using static Diner_Smash.PathHelper;
 
 namespace Diner_Smash
@@ -85,13 +81,14 @@ namespace Diner_Smash
         }
 
         /// <summary>
-        /// Same functionality except ZIndex is calculated based off the center of the character.
+        /// Same functionality except ZIndex is calculated from a different position.
         /// </summary>
         /// <returns></returns>
         public override float GetDrawIndex()
-        {            
+        {
+            var checkPosition = Y + 4 * ((float)Size.Y / 5);
             int scrHeight = Main.SourceLevel.LevelSize.Y;
-            var index = (float)BoundingRectangle.Center.Y / scrHeight;
+            var index = checkPosition / scrHeight;
             if (index < 0)
                 index *= -1;
             if (index < (float)ReservedZIndicies.ReservedValueRangeEnd / 100)

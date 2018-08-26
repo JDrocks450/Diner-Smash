@@ -116,10 +116,24 @@ namespace Diner_Smash
             foreach (var p in map)
                 PathMap.Add(new NavNode() { Location = p });
             foreach(var n in PathMap)            
-                n.PossibleNodes = PathMap.Where(x => x != n && !LOSCheck(n, x)).ToList();            
+                n.PossibleNodes = PathMap.Where(x => x != n && !LOSCheck(n, x)).ToList();
+            CleanMap(ref PathMap);
             nodes = PathMap.ToList();
             return PathMap;
-        }        
+        }
+
+        /// <summary>
+        /// Cleans out nodes that are unreachable
+        /// </summary>
+        /// <param name="Map"></param>
+        public void CleanMap(ref List<NavNode> Map)
+        {
+            Map.RemoveAll(node =>
+                node.X < 0 ||
+                node.X > Main.SourceLevel.LevelSize.X ||
+                node.Y < 0 ||
+                node.Y > Main.SourceLevel.LevelSize.Y);
+        }
 
         public bool LOSCheck(NavNode Next, NavNode Current)
         {

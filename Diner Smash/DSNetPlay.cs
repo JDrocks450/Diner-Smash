@@ -20,7 +20,7 @@ namespace Diner_Smash
     {        
         public int ID
         {
-            get => MultiplayerClient.context.ID;
+            get => (Main.PlacementMode) ? -1 : MultiplayerClient.context.ID;
         }
         public Client MultiplayerClient;
         public DSNetPlay(int mode = 0)

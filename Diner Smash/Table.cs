@@ -93,7 +93,7 @@ namespace Diner_Smash
 
         public Table(string Name, int ID) : base(Name, ObjectNameTable.Table)
         {
-            TableID = ID;           
+            TableID = ID;              
         }
 
         public override void Load(ContentManager Content)
@@ -260,9 +260,9 @@ namespace Diner_Smash
                     Focus.PlaceObjectInHand(TabletopItems.Where(x => x is Menu).First());
                     break;
                 case States.F_Waiting:
-                    if (Focus.Hands.Where(x => x is Food).Any())
+                    if (Focus.Hands.Where(x => x.Value is Food).Any())
                     {
-                        var query = Focus.Hands.Where(x => x is Food);
+                        var query = Focus.Hands.Where(x => x.Value is Food);
                         if (!query.Any())
                             return false;
                         var food = (Food)query.First().Value;

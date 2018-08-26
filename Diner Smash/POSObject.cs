@@ -39,7 +39,7 @@ namespace Diner_Smash
         {            
             if (!base.Interact(Focus, Force))
                 return false;
-            if (!Focus.Hands.Where(x => x is Menu).Any())
+            if (!Focus.Hands.Where(x => x.Value is Menu).Any())
             {
                 Interacting = false;
                 return false;

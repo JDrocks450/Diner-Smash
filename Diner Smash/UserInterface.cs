@@ -497,7 +497,7 @@ namespace Diner_Smash
                 var subjectActual = (Subject.Location - Main.GameCamera.ActualPosition).ToPoint();
                 var Margin_ = new Point(subjectActual.X - Destination.Width, subjectActual.Y + ((Subject.Size.Y / 2) - (Size.Y / 2)));
                 if (Margin_.X < 0)
-                    Margin_ = new Point(subjectActual.X + Subject.Width, Margin_.Y);
+                    Margin_ = new Point(subjectActual.X + Subject.Size.X, Margin_.Y);
                 if (Margin_.Y < 0)
                     Margin_.Y = 0;
                 if (Margin_.Y + Destination.Height > Main.UILayer.Height)
