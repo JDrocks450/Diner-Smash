@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Server_Structure;
+using Server_Structure.Commands;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -16,14 +17,14 @@ using static Diner_Smash.UserInterface;
 
 namespace Diner_Smash
 {
-    public class DSNetPlay
+    public class NetPlay
     {        
         public int ID
         {
             get => (Main.PlacementMode) ? -1 : MultiplayerClient.context.ID;
         }
         public Client MultiplayerClient;
-        public DSNetPlay(int mode = 0)
+        public NetPlay(int mode = 0)
         {
             MultiplayerMode = mode;
             Main.GlobalInput.UserInput += GlobalInput_UserInput;
@@ -35,7 +36,7 @@ namespace Diner_Smash
             {
                 var str = await PromptForTextMessage(true);
                 if (str != "<break>")
-                    MultiplayerClient.SendPacketToServer(DSPacket.Format(3, Encoding.ASCII.GetBytes(str)));
+                    MultiplayerClient.SendPacketToServer(DSPacket.Format(Command.CLIENT_MESSAGE_ALL, Encoding.ASCII.GetBytes(str)));
             }
         }
 
@@ -318,7 +319,7 @@ namespace Diner_Smash
                 bytes.AddRange(BitConverter.GetBytes(sender.OwnerID));
                 bytes.AddRange(BitConverter.GetBytes(destination.X));
                 bytes.AddRange(BitConverter.GetBytes(destination.Y));
-                var b = DSPacket.Format(6, bytes.ToArray());
+                var b = DSPacket.Format(Command.PLAYER_NAVIGATE, bytes.ToArray());
                 MultiplayerClient.SendPacketToServer(b);
             }
         }
@@ -331,7 +332,7 @@ namespace Diner_Smash
                 bytes.AddRange(BitConverter.GetBytes(Person.ID));
                 bytes.AddRange(BitConverter.GetBytes(OBJID));
                 bytes.AddRange(BitConverter.GetBytes(Quadrant));
-                var b = DSPacket.Format(8, bytes.ToArray());
+                var b = DSPacket.Format(Command.PERSON_SEAT, bytes.ToArray());
                 MultiplayerClient.SendPacketToServer(b);
             }
         }
@@ -342,7 +343,7 @@ namespace Diner_Smash
                 List<byte> bytes = new List<byte>();
                 bytes.AddRange(BitConverter.GetBytes(sender.OwnerID));
                 bytes.AddRange(BitConverter.GetBytes(OBJID));
-                var b = DSPacket.Format(7, bytes.ToArray());
+                var b = DSPacket.Format(Command.PLAYER_INTERACT, bytes.ToArray());
                 MultiplayerClient.SendPacketToServer(b);
             }
         }

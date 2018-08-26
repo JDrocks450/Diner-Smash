@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Server_Structure.Commands;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -63,7 +64,7 @@ namespace Server_Structure
     }
 
     public struct DSPacket
-    {
+    {        
         public const int PACKET_DataIndex = 6;
         public byte ServerCommand { get; private set; }
         public int EXPECTED_SIZE;
@@ -88,11 +89,11 @@ namespace Server_Structure
             get; internal set;
         }
 
-        public static byte[] Format(byte ServerCommand, byte[] data)
+        public static byte[] Format(Command ServerCommand, byte[] data)
         {
             byte[] b = new byte[(data.Length + 7)];
             b[0] = 30;
-            b[1] = ServerCommand;
+            b[1] = (byte)ServerCommand;
             var size = BitConverter.GetBytes(b.Length);
             b[2] = size[0];
             b[3] = size[1];
@@ -170,7 +171,35 @@ namespace Server_Structure
         {
             get => Path.Combine(Environment.CurrentDirectory, ServerExecutableName);
         }
-        public static List<string> ConsoleLines = new List<string>();
+        public static List<string> ConsoleLines = new List<string>();        
+        static bool? ISCONSOLE = null;
+        public static byte[] SERVER_LevelFile
+        {
+            get
+            {
+                return _levelFile;
+            }
+            set
+            {
+                _levelFile = value;
+                WriteLine($"Level file was changed! Size: {_levelFile.Length}");
+            }
+        }
+        public static IPAddress Operator
+        {
+            get; private set;
+        }
+        static Socket ServerSocket;
+        public static ObservableCollection<ClientContext> Connections = new ObservableCollection<ClientContext>();
+        private static byte[] _levelFile;
+        static bool FLAG_Quit;
+
+        public static bool GameInProgress = true;
+        /// <summary>
+        /// Used to sync up newly joined clients.
+        /// </summary>
+        public static List<byte[]> PacketsBroadcasted = new List<byte[]>();
+
         public static void WriteLine(string message, bool IsConsole = true)
         {
             if (ISCONSOLE.HasValue)
@@ -194,28 +223,6 @@ namespace Server_Structure
             }
             WriteLine("Wrote buffer to log.txt");
         }
-        static bool? ISCONSOLE = null;
-        public static byte[] SERVER_LevelFile
-        {
-            get
-            {
-                return _levelFile;
-            }
-
-            private set
-            {
-                _levelFile = value;
-                WriteLine($"Level file was changed! Size: {_levelFile.Length}");
-            }
-        }
-        public static IPAddress Operator
-        {
-            get; private set;
-        }
-        static Socket ServerSocket;
-        public static ObservableCollection<ClientContext> Connections = new ObservableCollection<ClientContext>();
-        private static byte[] _levelFile;
-        static bool FLAG_Quit;
 
         /// <summary>
         /// Launches the server for connections...
@@ -249,7 +256,7 @@ namespace Server_Structure
             if (FLAG_Quit)
             {
                 foreach (var c in Connections)
-                    CloseConnection(c, "", 1);
+                    CloseConnection(c, "", Command.CLIENT_KICK);
                 listener.Stop();
             }
         }
@@ -294,7 +301,7 @@ namespace Server_Structure
                     var r = "<no reason given>";
                     if (PreParameters.Length == 2)
                         r = PreParameters[1];
-                    CloseConnection(Connections.Where(x => x.ID == i).First(), r, 1);
+                    CloseConnection(Connections.Where(x => x.ID == i).First(), r, Command.CLIENT_KICK);
                     return true;
                 }
                 else
@@ -346,7 +353,7 @@ namespace Server_Structure
                             WriteLine("Kick who? Waiting for context ID...");                        
                         return true;
                     case "ready":
-                        BroadcastGameStart();
+                        HostStartedGameCommand.BroadcastGameStart();
                         return true;
                     case "say":
                         FLAG_WAITSAY = true;
@@ -366,13 +373,7 @@ namespace Server_Structure
                 return true;
             }
             return true;
-        }
-
-        private static void BroadcastGameStart()
-        {
-            var packet = DSPacket.Format(9, new byte[0]);
-            BroadcastPacket(packet);
-        }
+        }        
 
         #region DataPersistance
         /// <summary>
@@ -417,33 +418,29 @@ namespace Server_Structure
                         completed.Add(packet);
                 }
                 foreach (var Packet in completed)
-                    switch (Packet.ServerCommand)
+                    switch ((Command)Packet.ServerCommand)
                     {
-                        case 1: //Kicks client
-                            CloseConnection(context, "<no reason>", 1);
+                        case Command.CLIENT_KICK:
+                            CloseConnection(context, "<no reason>", Command.CLIENT_KICK);
                             break;
-                        case 2: //Sends a text message to server
-                            message = ASCIIEncoding.ASCII.GetString(Packet.data);
-                            WriteLine("Client: " + context.ID + " whispered: " + message);
-                            break;
-                        case 3: //Sends a text message to all clients
+                        case Command.CLIENT_MESSAGE_ALL:
                             BroadcastASCIIMessage(context.Gamertag, Encoding.ASCII.GetString(Packet.data), BroadcastAudience.All);
                             break;
-                        case 4: //Updates the server level and forces clients to switch levels
+                        case Command.LEVEL_NEWLEVEL:
                             WriteLine("Client has requested to update server level. Size: " + Packet.data.Length);
-                            UpdateLevel(context, Packet.data);
+                            LevelChangedCommand.UpdateLevel(context, Packet.data);
                             break;
-                        case 6: //Player Requesting Navigation
-                            PlayerNavigated(context, Packet.data);
+                        case Command.PLAYER_NAVIGATE:
+                            PlayerNavigationCommand.PlayerNavigated(context, Packet.data);
                             break;
-                        case 7: //Player Requesting Navigation
-                            PlayerInteracted(context, Packet.data);
+                        case Command.PLAYER_INTERACT:
+                            PlayerInteractionCommand.PlayerInteracted(context, Packet.data);
                             break;
-                        case 8: //Seated Person
-                            PersonSeated(context, Packet.data);
+                        case Command.PERSON_SEAT:
+                            PersonSeatedCommand.PersonSeated(context, Packet.data);                            
                             break;
-                        case 9: //Host start game
-                            BroadcastGameStart();
+                        case Command.HOST_STARTGAME:
+                            HostStartedGameCommand.BroadcastGameStart();
                             break;
                     }               
             }
@@ -468,102 +465,47 @@ namespace Server_Structure
         /// Run these tasks for everyone
         /// </summary>
         /// <param name="Joined"></param>
-        static void RunWhenPlayerJoins(ClientContext Joined)
+        static async void RunWhenPlayerJoins(ClientContext Joined)
         {
             Joined.Operator = VerifyIPasOperator(Joined);
             Connections.Add(Joined);
             SyncContextID(Joined, (byte)(Connections.Count));
             foreach(var c in Connections.Where(x => x != Joined))
             {
-                CreatePlayer(c, Joined.ID);
+                CreatePlayerCommand.CreatePlayer(c, Joined.ID);
             }            
-            SendLevel(Joined);
-            BroadcastCreateAllPlayers(Joined);
+            LevelChangedCommand.SendLevel(Joined);
+            CreatePlayerCommand.BroadcastCreateAllPlayers(Joined);
+            await SyncClient(Joined);
         }
 
         /// <summary>
-        /// Tells the client to create a player for the context ID.
+        /// Used to blast a client who joined in progress to sync them up to where the game is now.
         /// </summary>
-        /// <param name="SendTo"></param>
-        /// <param name="PlayerID"></param>
-        static void CreatePlayer(ClientContext SendTo, int PlayerID)
+        static Task SyncClient(ClientContext Send)
         {
-            var b = BitConverter.GetBytes(PlayerID);
-            var send = DSPacket.Format(4, b);
-            SendPacketToClient(SendTo, send);
-            WriteLine($"Player created on context: {SendTo.ID}, for ID: {PlayerID}");
-        }
-
-        static void BroadcastCreateAllPlayers(ClientContext SendTo)
-        {
-            foreach (var id in Connections.Select(x => x.ID))
-                CreatePlayer(SendTo, id);
-        }
-
-        private static void PlayerNavigated(ClientContext context, byte[] data)
-        {
-            var b = DSPacket.Format(5, data);
-            BroadcastPacket(b);
-            var x = BitConverter.ToInt32(data, 4);
-            var y = BitConverter.ToInt32(data, 8);
-            WriteLine($"Navigation Accepted X:{x}, Y:{y}");
-        }
-
-        private static void PlayerInteracted(ClientContext context, byte[] data)
-        {
-            var b = DSPacket.Format(7, data);
-            BroadcastPacket(b);
-            var x = BitConverter.ToInt32(data, 0);
-            var y = BitConverter.ToInt32(data, 4);
-            WriteLine($"Player: {x}, Interacts with Object: {y}");
-        }
-
-        private static void PersonSeated(ClientContext context, byte[] data)
-        {
-            var b = DSPacket.Format(8, data);
-            BroadcastPacket(b, BroadcastAudience.All);
-            var SenderID = BitConverter.ToInt32(data, 0);
-            var pID = BitConverter.ToInt32(data, 4);
-            var table = BitConverter.ToInt32(data, 8);
-            WriteLine($"Player: {SenderID}, Seats Person: {pID} at Table: {table}");
+            return Task.Run(() =>
+            {
+                if (PacketsBroadcasted.Count == 0)
+                    return;
+                WriteLine($"Syncing Client: {Send.ID}");
+                foreach (var p in PacketsBroadcasted)
+                    SendPacketToClient(Send, p);
+                WriteLine($"Syncing Complete... {PacketsBroadcasted.Count} packets sent");
+            });
         }
 
         /// <summary>
-        /// Called after command /S_LEVEL is called. Server waits for next message from client containing level data.
+        /// Change the ID of a client also making sure the client updates it's stored ID.
         /// </summary>
         /// <param name="context"></param>
-        static bool UpdateLevel(ClientContext context, byte[] buffer)
-        {
-            if (!context.Operator)
-            {
-                WriteLine("Client: " + context.ID + " is not an operator and therefore cannot change the server level.");
-                return false;
-            }
-            SERVER_LevelFile = buffer;
-            return true;
-        }
-
+        /// <param name="newID"></param>
         static void SyncContextID(ClientContext context, byte newID)
         {
             var old_id = context.IP;
-            SendPacketToClient(context, DSPacket.Format(3, new byte[1] { newID }));
+            SendPacketToClient(context, DSPacket.Format(Command.CLIENT_IDCHANGE, new byte[1] { newID }));
             context.ID = newID;
             WriteLine(old_id + " has ID: " + context.ID);
-        }
-
-        /// <summary>
-        /// Sends the current level to client, forcing it to update it's level.
-        /// </summary>
-        /// <param name="context"></param>
-        static void SendLevel(ClientContext context)
-        {
-            if (SERVER_LevelFile == null)
-            {
-                WriteLine("A LevelSave is not present and therefore the SendLevel command was aborted.");
-                return;
-            }
-            WriteLine($"Sending level data to context: {context.ID}");
-            SendPacketToClient(context, DSPacket.Format(2, SERVER_LevelFile));
         }
 
         /// <summary>
@@ -583,16 +525,16 @@ namespace Server_Structure
         /// </summary>
         /// <param name="context"></param>
         /// <param name="mode">1: Client was removed; 0: Client disconnected</param>
-        static void CloseConnection(ClientContext context, string reason, int mode)
+        static void CloseConnection(ClientContext context, string reason, Command mode)
         {
             try
             {
                 var r = Encoding.ASCII.GetBytes($"{context.ID}|{reason}");
-                BroadcastPacket(DSPacket.Format((byte)mode, r), BroadcastAudience.All);
+                BroadcastPacket(DSPacket.Format(mode, r), BroadcastAudience.All);
                 context.Dispose();
             }
             catch { }            
-            WriteLine($"Client: {context.ID} {(mode == 1 ? "was kicked" : "disconnected")} because: " + reason);
+            WriteLine($"Client: {context.ID} {(mode == Command.CLIENT_KICK ? "was kicked" : "disconnected")} because: " + reason);
             Connections.Remove(context);
         }
 
@@ -646,25 +588,26 @@ namespace Server_Structure
             All,
         }
 
-        static void BroadcastASCIIMessage(string sender, string message, BroadcastAudience audience = BroadcastAudience.All)
+        public static void BroadcastASCIIMessage(string sender, string message, BroadcastAudience audience = BroadcastAudience.All)
         {
             int messageattempts = 0;
             if (audience == BroadcastAudience.All)
                 foreach (var client in Connections)
                 {
-                    SendPacketToClient(client, DSPacket.Format(6, Encoding.ASCII.GetBytes($"{sender}|{message}")));
+                    SendPacketToClient(client, DSPacket.Format(Command.CLIENT_MESSAGE_ALL, Encoding.ASCII.GetBytes($"{sender}|{message}")));
                     messageattempts++;
                 }
             WriteLine($"[Messenger] {sender}: {message}");
         }
 
-        static void BroadcastPacket(byte[] FormattedPacket, BroadcastAudience audience = BroadcastAudience.All)
+        public static void BroadcastPacket(byte[] FormattedPacket, BroadcastAudience audience = BroadcastAudience.All)
         {
             foreach (var c in Connections)
                 SendPacketToClient(c, FormattedPacket);
+            PacketsBroadcasted.Add(FormattedPacket);
         }
 
-        static void SendPacketToClient(ClientContext context, byte[] FormattedPacket)
+        public static void SendPacketToClient(ClientContext context, byte[] FormattedPacket)
         {
             NetworkStream nwStream = context.Client.GetStream();
             Debug.WriteLine("Sending Packet to Client: " + FormattedPacket.Length);

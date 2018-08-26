@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Server_Structure.Commands;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -110,7 +111,7 @@ namespace Server_Structure
 
         public void RequestLevelChange(byte[] LevelData)
         {
-            SendPacketToServer(DSPacket.Format(4, LevelData));
+            SendPacketToServer(DSPacket.Format(Commands.Command.LEVEL_NEWLEVEL, LevelData));
         }
 
         public void ReceiveLevel(byte[] buffer)
@@ -166,9 +167,9 @@ namespace Server_Structure
                     completed.Add(packet);
             }
             foreach (var Packet in completed)
-                switch (Packet.ServerCommand)
+                switch ((Command)Packet.ServerCommand)
                 {
-                    case 0: //Server shutting down
+                    case Command.SERVER_SHUTDOWN: //Server shutting down
                         {
                             var r = Encoding.ASCII.GetString(Packet.data);
                             int.TryParse(r.Substring(0, r.IndexOf('|')), out int id);
@@ -177,7 +178,7 @@ namespace Server_Structure
                             DisconnectedFromGame?.Invoke(id, r);
                         }
                         break;
-                    case 1: //Someone Kicked   
+                    case Command.CLIENT_KICK: //Someone Kicked   
                         {
                             var r = Encoding.ASCII.GetString(Packet.data);
                             int.TryParse(r.Substring(0, r.IndexOf('|')), out int id);
@@ -186,11 +187,11 @@ namespace Server_Structure
                             RemovedFromMatch?.Invoke(id, r);
                         }
                         break;
-                    case 2: //Switch Level
+                    case Command.LEVEL_LEVELCHANGED: //Switch Level
                         Server.WriteLine("Server forcing level change. Size: " + Packet.data.Length);
                         ReceiveLevel(Packet.data);
                         break;
-                    case 3: //ID changed
+                    case Command.CLIENT_IDCHANGE: //ID changed
                         if (Packet.data.Length > 1)
                         {
                             Server.WriteLine("Command Formatting is incorrect: No <byte> in byte array.");
@@ -198,26 +199,26 @@ namespace Server_Structure
                         }
                         context.ID = Packet.data[0];
                         break;
-                    case 4: //Create player for ClientContext
+                    case Command.CLIENT_CREATEPLAYER: //Create player for ClientContext
                         CreatePlayer(Packet.data);
                         break;
-                    case 5: //Player navigates to a position
+                    case Command.PLAYER_NAVIGATE: //Player navigates to a position
                         PlayerNavigate(Packet.data);
                         break;
-                    case 6: //Textmessage
+                    case Command.CLIENT_MESSAGE_ALL: //Textmessage
                         message = Encoding.ASCII.GetString(Packet.data);
                         string sender = message.Substring(0, message.IndexOf('|'));
                         message = message.Substring(message.IndexOf('|') + 1);
                         OnMessageReceived?.Invoke(sender, message);
                         Server.WriteLine($"{sender}: {message}");
                         break;
-                    case 7: //Player interacts with an object
+                    case Command.PLAYER_INTERACT: //Player interacts with an object
                         PlayerInteract(Packet.data);
                         break;
-                    case 8:
+                    case Command.PERSON_SEAT:
                         PersonSeated(Packet.data);
                         break;
-                    case 9: //Host start game
+                    case Command.HOST_STARTGAME: //Host start game
                         HostStartedGame?.Invoke(context.ID);
                         break;
                 }

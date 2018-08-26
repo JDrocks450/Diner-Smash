@@ -65,6 +65,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client.cs" />
+    <Compile Include="Commands\Commands.cs" />
+    <Compile Include="Commands\CreatePlayerCommand.cs" />
+    <Compile Include="Commands\HostStartedGameCommand.cs" />
+    <Compile Include="Commands\LevelChangedCommand.cs" />
+    <Compile Include="Commands\PersonSeatedCommand.cs" />
+    <Compile Include="Commands\PlayerInteractionCommand.cs" />
+    <Compile Include="Commands\PlayerNavigationCommand.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Server.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
